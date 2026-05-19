@@ -2,21 +2,21 @@
   "numero_drones": 2,
   "tamanho_ambiente": [250,250],
   "Pontos": {
-    "p1": {"x": 10, "y": 10, "r": 5},
-    "p2": {"x": 20, "y": 20,"r": 5},
-    "p3": {"x": 30, "y": 30,"r": 5}
+    "p1": {"x": 10, "y": 10, "r": 1},
+    "p2": {"x": 20, "y": 10,"r": 1},
+    "p3": {"x": 30, "y": 10,"r": 1}
   },
   "drones": {
     "drone1": {
       "posicao_inicial": "p1",
       "posicao_destino": "p2",
-      "raio": 1,
+      "raio": 2,
       "velocidade": 1
     },
     "drone2": {
       "posicao_inicial": "p2",
       "posicao_destino": "p3",
-      "raio": 1,
+      "raio": 2,
       "velocidade": 0.5
     }
   }

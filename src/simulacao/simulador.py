@@ -245,9 +245,9 @@ class SimuladorDrones:
             "quantidade_bateu": qtd_colidiu,
             "quantidade_ok": qtd_entregou,
             "quantidade_nao_concluiu": qtd_nao_concluiu,
-            "taxa_sucesso": self._arredondar(qtd_entregou / total),
-            "taxa_fracasso": self._arredondar((qtd_colidiu + qtd_nao_concluiu) / total),
-            "taxa_colisao": self._arredondar(qtd_colidiu / total),
+            "_taxa_sucesso": (qtd_entregou / total) if total else 0.0,
+            "_taxa_fracasso": ((qtd_colidiu + qtd_nao_concluiu) / total) if total else 0.0,
+            "_taxa_colisao": (qtd_colidiu / total) if total else 0.0,
             "tempo_medio_para_chegada": self._arredondar(sum(tempos_entrega) / len(tempos_entrega) if tempos_entrega else 0),
             "distancia_media_percorrida": self._arredondar(distancia_total / total),
             "distancia_total_percorrida": self._arredondar(distancia_total),
@@ -255,6 +255,17 @@ class SimuladorDrones:
             "eventos_interacoes": eventos_interacoes,
             "avisos_configuracao": self.avisos,
         }
+
+        def fmt_pct(x: float) -> str:
+            pct = x * 100
+            if abs(pct - round(pct)) < 1e-9:
+                return f"{int(round(pct))}%"
+            return f"{round(pct,1)}%"
+
+        # sobrescrever as chaves principais com strings percentuais
+        resultado["taxa_sucesso"] = fmt_pct(resultado.pop("_taxa_sucesso"))
+        resultado["taxa_fracasso"] = fmt_pct(resultado.pop("_taxa_fracasso"))
+        resultado["taxa_colisao"] = fmt_pct(resultado.pop("_taxa_colisao"))
 
         for nome, drone in self.drones.items():
             resultado[nome] = {

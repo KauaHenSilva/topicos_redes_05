@@ -6,6 +6,7 @@ import argparse
 import json
 from pathlib import Path
 from typing import TypeAlias, TypedDict, cast
+from datetime import datetime
 
 from src.simulacao import (
     SimuladorDrones,
@@ -132,10 +133,13 @@ def main() -> None:
     interacoes_raw, resultado_final_raw = simulador.executar()
     interacoes = cast(InteracoesSimulacao, interacoes_raw)
     resultado_final = cast(ResultadoFinalSimulacao, resultado_final_raw)
-    arquivos_saida = salvar_resultado(args.saida, interacoes, resultado_final)
+    # criar subpasta com timestamp para resultados para evitar sobrescrever execucoes anteriores
+    pasta_base = Path(args.saida)
+    pasta_timestamp = pasta_base / datetime.now().strftime("%Y%m%d_%H%M%S")
+    arquivos_saida = salvar_resultado(pasta_timestamp, interacoes, resultado_final)
 
     imprimir_progresso(interacoes, resultado_final)
-    print(f"Arquivos salvos em: {Path(args.saida)}")
+    print(f"Arquivos salvos em: {pasta_timestamp}")
     print(f"Total de arquivos gerados: {len(arquivos_saida)}")
 
 
