@@ -3,30 +3,13 @@
 from __future__ import annotations
 
 import argparse
-import json
 from pathlib import Path
-from typing import TypeAlias, TypedDict, cast
 from datetime import datetime
 
 from src.simulacao import (
-    SimuladorDrones,
-    carregar_configuracao,
-    preparar_configuracao_simulacao,
+    executar_simulacao_de_arquivo,
+    salvar_resultado,
 )
-
-
-class EstadoDroneInteracao(TypedDict):
-    posicao_atual: list[float]
-    status: str
-
-
-class ResultadoFinalSimulacao(TypedDict):
-    tempos_interacoes: dict[str, float]
-    eventos_interacoes: dict[str, list[str]]
-    avisos_configuracao: list[str]
-
-
-InteracoesSimulacao: TypeAlias = dict[str, dict[str, EstadoDroneInteracao]]
 
 
 def parse_args() -> argparse.Namespace:
@@ -50,50 +33,9 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def salvar_resultado(
-    diretorio_saida: str | Path,
-    interacoes: InteracoesSimulacao,
-    resultado_final: ResultadoFinalSimulacao,
-) -> list[Path]:
-    diretorio = Path(diretorio_saida)
-    diretorio.mkdir(parents=True, exist_ok=True)
-
-    arquivos: list[Path] = []
-    tempos = resultado_final["tempos_interacoes"]
-    eventos = resultado_final["eventos_interacoes"]
-
-    for nome_interacao, drones in interacoes.items():
-        eventos_interacao = eventos.get(nome_interacao)
-        arquivo_interacao = diretorio / f"{nome_interacao}.json"
-        with arquivo_interacao.open("w", encoding="utf-8") as fp:
-            json.dump(
-                {
-                    "nome": nome_interacao,
-                    "tempo": tempos.get(nome_interacao, 0.0),
-                    "eventos": eventos_interacao if eventos_interacao is not None else [],
-                    "drones": drones,
-                },
-                fp,
-                ensure_ascii=False,
-                indent=2,
-            )
-        arquivos.append(arquivo_interacao)
-
-    arquivo_resultado = diretorio / "resultado_final.json"
-    with arquivo_resultado.open("w", encoding="utf-8") as fp:
-        json.dump(
-            resultado_final,
-            fp,
-            ensure_ascii=False,
-            indent=2,
-        )
-    arquivos.append(arquivo_resultado)
-    return arquivos
-
-
 def imprimir_progresso(
-    interacoes: InteracoesSimulacao,
-    resultado_final: ResultadoFinalSimulacao,
+    interacoes: dict[str, dict[str, object]],
+    resultado_final: dict[str, object],
 ) -> None:
     tempos = resultado_final["tempos_interacoes"]
     eventos = resultado_final["eventos_interacoes"]
@@ -118,27 +60,20 @@ def imprimir_progresso(
 
 def main() -> None:
     args = parse_args()
-    configuracao_execucao = carregar_configuracao(args.config)
-    caminho_configuracao = cast(
-        str | Path,
-        configuracao_execucao.get("arquivo_configuracao", "utils/variaveis.json"),
-    )
-    configuracao = preparar_configuracao_simulacao(
-        carregar_configuracao(caminho_configuracao)
-    )
-    simulador = SimuladorDrones(
-        configuracao,
+    execucao = executar_simulacao_de_arquivo(
+        args.config,
         max_iteracoes=args.max_iteracoes,
     )
-    interacoes_raw, resultado_final_raw = simulador.executar()
-    interacoes = cast(InteracoesSimulacao, interacoes_raw)
-    resultado_final = cast(ResultadoFinalSimulacao, resultado_final_raw)
     # criar subpasta com timestamp para resultados para evitar sobrescrever execucoes anteriores
     pasta_base = Path(args.saida)
     pasta_timestamp = pasta_base / datetime.now().strftime("%Y%m%d_%H%M%S")
-    arquivos_saida = salvar_resultado(pasta_timestamp, interacoes, resultado_final)
+    arquivos_saida = salvar_resultado(
+        pasta_timestamp,
+        execucao.interacoes,
+        execucao.resultado_final,
+    )
 
-    imprimir_progresso(interacoes, resultado_final)
+    imprimir_progresso(execucao.interacoes, execucao.resultado_final)
     print(f"Arquivos salvos em: {pasta_timestamp}")
     print(f"Total de arquivos gerados: {len(arquivos_saida)}")
 

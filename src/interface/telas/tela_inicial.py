@@ -1,5 +1,8 @@
 import customtkinter as ctk
-from tkinter import messagebox
+from pathlib import Path
+from tkinter import filedialog, messagebox
+
+from src.interface.utils.gerador_json import carregar_configuracao_interface
 
 class TelaInicial:
     def __init__(self, parent, app):
@@ -21,7 +24,16 @@ class TelaInicial:
         self.entrada_altura.pack(pady=10, padx=40)
 
         self.btn_avancar = ctk.CTkButton(self.frame, text="Avançar para o Mapa", command=self.salvar_e_avancar)
-        self.btn_avancar.pack(pady=(30, 30), padx=40)
+        self.btn_avancar.pack(pady=(30, 10), padx=40)
+
+        self.btn_carregar = ctk.CTkButton(
+            self.frame,
+            text="Carregar Configuração",
+            fg_color="#555555",
+            hover_color="#333333",
+            command=self.carregar_configuracao,
+        )
+        self.btn_carregar.pack(pady=(0, 30), padx=40)
 
     def salvar_e_avancar(self):
         largura = self.entrada_largura.get()
@@ -39,4 +51,21 @@ class TelaInicial:
         self.app.dados_simulacao["tamanho_ambiente"] = [largura, altura]
         # Deixamos o numero_drones para ser preenchido dinamicamente depois!
         
+        self.app.mostrar_tela_mapa()
+
+    def carregar_configuracao(self):
+        caminho = filedialog.askopenfilename(
+            title="Escolha uma configuração",
+            filetypes=[("Arquivos JSON", "*.json"), ("Todos os arquivos", "*.*")],
+        )
+        if not caminho:
+            return
+
+        try:
+            self.app.dados_simulacao = carregar_configuracao_interface(caminho)
+        except (OSError, ValueError) as erro:
+            messagebox.showerror("Erro", f"Não foi possível carregar a configuração:\n{erro}")
+            return
+
+        self.app.caminho_configuracao_atual = Path(caminho)
         self.app.mostrar_tela_mapa()

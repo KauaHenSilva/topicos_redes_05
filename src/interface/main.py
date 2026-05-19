@@ -1,3 +1,10 @@
+from pathlib import Path
+import sys
+
+RAIZ_PROJETO = Path(__file__).resolve().parents[2]
+if str(RAIZ_PROJETO) not in sys.path:
+    sys.path.insert(0, str(RAIZ_PROJETO))
+
 import customtkinter as ctk
 from telas.tela_inicial import TelaInicial
 from telas.tela_mapa import TelaMapa
@@ -23,6 +30,8 @@ class InterfaceSimulador(ctk.CTk):
             "Pontos": {},
             "drones": {}
         }
+        self.caminho_configuracao_atual = Path("src/interface/config.json")
+        self.diretorio_saida = Path("saida")
 
         # Switch para alternar Tema (Canto superior direito)
         self.switch_tema = ctk.CTkSwitch(self, text="Modo Claro", command=self.alternar_tema)
