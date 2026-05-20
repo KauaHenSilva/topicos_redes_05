@@ -76,3 +76,12 @@ Interface grafica vai mostrar o resultado das interação a cada movimento.
 
 - Discutir oque foi implementado, (18hrs). (Ou durante o dia, se finalizado ou quase finalizado).
 - Caso não conseguimos realizar, remarcar.
+
+# Feedback de IAGO ( 20/05)
+
+- Gerar Graficos ( Se der )
+- Cenario mais complexo 
+- Cenario de ir para um ponto e voltar para o ponto inicial.
+- Um drone vai para um ponto, e depôs ele vai para outro ponto. 
+
+De preferencia botar tudo oque tá em cima em um mesmo cenario.  
