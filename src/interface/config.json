@@ -1,0 +1,35 @@
+{
+  "numero_drones": 2,
+  "tamanho_ambiente": [
+    150.0,
+    100.0
+  ],
+  "Pontos": {
+    "A": {
+      "x": 47.73,
+      "y": 18.23,
+      "r": 5.0
+    },
+    "B": {
+      "x": 126.55,
+      "y": 67.29,
+      "r": 6.0
+    }
+  },
+  "drones": {
+    "a": {
+      "posicao_inicial": "A",
+      "posicao_destino": "B",
+      "raio": 6.0,
+      "velocidade": 23.0,
+      "modelo_base": null
+    },
+    "b 1": {
+      "posicao_inicial": "B",
+      "posicao_destino": "A",
+      "raio": 6.0,
+      "velocidade": 23.0,
+      "modelo_base": "b"
+    }
+  }
+}

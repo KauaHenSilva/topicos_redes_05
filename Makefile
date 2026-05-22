@@ -1,7 +1,18 @@
-PYTHON ?= python3
+# 1. Primeiro definimos a pasta do ambiente virtual
 VENV := .venv
-VENV_PYTHON := $(VENV)/bin/python
-VENV_PIP := $(VENV)/bin/pip
+
+# 2. Depois fazemos a verificação do Sistema Operacional
+ifeq ($(OS),Windows_NT)
+	PYTHON ?= python
+	VENV_BIN := $(VENV)/Scripts
+else
+	PYTHON ?= python3
+	VENV_BIN := $(VENV)/bin
+endif
+
+# 3. Montamos os caminhos dos executáveis
+VENV_PYTHON := $(VENV_BIN)/python
+VENV_PIP := $(VENV_BIN)/pip
 
 .PHONY: help venv install run run-cli run-gui
 

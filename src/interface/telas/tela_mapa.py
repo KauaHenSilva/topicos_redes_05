@@ -6,6 +6,7 @@ from typing import Any
 
 import customtkinter as ctk
 from tkinter import Canvas, TclError, filedialog, messagebox
+from PIL import Image, ImageTk
 
 from src.interface.utils.gerador_json import (
     carregar_configuracao_interface,
@@ -26,6 +27,8 @@ class TelaMapa:
         
         self.canvas_items = {"bases": {}, "drones": {}}
         self.item_selecionado = {"tipo": None, "nome": None}
+        self.modelos_drones = {}
+        self.imagens_em_memoria = {}
         self.interacoes_simulacao: dict[str, dict[str, dict[str, Any]]] = {}
         self.resultado_final_simulacao: dict[str, Any] | None = None
         self.nomes_interacoes: list[str] = []
@@ -42,121 +45,121 @@ class TelaMapa:
         self.construir_tela()
 
     def construir_tela(self):
-        self.painel_lateral = ctk.CTkFrame(self.parent, width=280)
+        # ================= PAINEL LATERAL (MENU) =================
+        self.painel_lateral = ctk.CTkScrollableFrame(self.parent, width=280)
         self.painel_lateral.pack(side="right", fill="y", padx=10, pady=10)
 
-        lbl_ferramentas = ctk.CTkLabel(self.painel_lateral, text="Ferramentas", font=ctk.CTkFont(size=18, weight="bold"))
-        lbl_ferramentas.pack(pady=(15, 10))
+        lbl_ferramentas = ctk.CTkLabel(self.painel_lateral, text="Painel de Controle", font=ctk.CTkFont(size=18, weight="bold"))
+        lbl_ferramentas.pack(pady=(10, 15))
 
-        self.btn_modo_base = ctk.CTkButton(self.painel_lateral, text="Criar Base (Ponto)", fg_color="green", command=self.ativar_modo_base)
-        self.btn_modo_base.pack(pady=5, padx=20)
-
-        self.btn_modo_drone = ctk.CTkButton(self.painel_lateral, text="Criar Drone", command=self.ativar_modo_drone)
-        self.btn_modo_drone.pack(pady=5, padx=20)
-
-        self.btn_carregar_config = ctk.CTkButton(
-            self.painel_lateral,
-            text="Carregar Configuração",
-            fg_color="#555555",
-            hover_color="#333333",
-            command=self.carregar_configuracao,
-        )
-        self.btn_carregar_config.pack(pady=(14, 5), padx=20)
-
-        self.btn_salvar_config = ctk.CTkButton(
-            self.painel_lateral,
-            text="Salvar Configuração Como",
-            fg_color="orange",
-            hover_color="#cc7000",
-            command=self.salvar_configuracao_como,
-        )
-        self.btn_salvar_config.pack(pady=5, padx=20)
-
-        self.btn_pasta_saida = ctk.CTkButton(
-            self.painel_lateral,
-            text="Escolher Pasta de Saída",
-            fg_color="#555555",
-            hover_color="#333333",
-            command=self.escolher_pasta_saida,
-        )
-        self.btn_pasta_saida.pack(pady=5, padx=20)
-
-        self.lbl_pasta_saida = ctk.CTkLabel(
-            self.painel_lateral,
-            text="Saída: saida",
-            text_color="gray",
-            wraplength=220,
-            justify="center",
-        )
-        self.lbl_pasta_saida.pack(pady=(0, 8), padx=20)
-        self.atualizar_label_pasta_saida()
-
-        self.lbl_status = ctk.CTkLabel(self.painel_lateral, text="Modo: Visualização", text_color="gray")
-        self.lbl_status.pack(pady=10)
-
-        lbl_lista = ctk.CTkLabel(self.painel_lateral, text="Elementos Criados", font=ctk.CTkFont(size=16, weight="bold"))
-        lbl_lista.pack(pady=(10, 5))
+        # --- Seção 1: Criação ---
+        frame_criacao = ctk.CTkFrame(self.painel_lateral, fg_color="transparent")
+        frame_criacao.pack(fill="x", padx=10)
         
-        self.scroll_lista = ctk.CTkScrollableFrame(self.painel_lateral, height=200)
-        self.scroll_lista.pack(fill="both", expand=True, padx=10, pady=5)
+        self.btn_modo_base = ctk.CTkButton(frame_criacao, text="📍 Criar Base (Ponto)", fg_color="#27ae60", hover_color="#219653", command=self.ativar_modo_base)
+        self.btn_modo_base.pack(fill="x", pady=4)
 
-        self.caixa_resultado = ctk.CTkTextbox(self.painel_lateral, height=150)
-        self.caixa_resultado.pack(fill="x", padx=10, pady=(5, 10))
+        self.btn_modo_drone = ctk.CTkButton(frame_criacao, text="🚁 Criar Drone", fg_color="#2980b9", hover_color="#2471a3", command=self.ativar_modo_drone)
+        self.btn_modo_drone.pack(fill="x", pady=(4, 15))
+
+        # --- Subseção: Modelos Padrão ---
+        lbl_modelos = ctk.CTkLabel(frame_criacao, text="Modelo Ativo:", font=ctk.CTkFont(size=12, weight="bold"), text_color="gray", anchor="w")
+        lbl_modelos.pack(fill="x")
+
+        self.var_modelo_ativo = ctk.StringVar(value="Personalizado")
+        self.combo_modelos = ctk.CTkOptionMenu(
+            frame_criacao,
+            variable=self.var_modelo_ativo,
+            values=["Personalizado"],
+            fg_color="#34495e", button_color="#2c3e50", button_hover_color="#1a252f"
+        )
+        self.combo_modelos.pack(fill="x", pady=4)
+
+        self.btn_novo_modelo = ctk.CTkButton(
+            frame_criacao, text="➕ Novo Modelo",
+            fg_color="transparent", border_width=1, border_color="#34495e", text_color="white", hover_color="#34495e",
+            command=self.abrir_formulario_novo_modelo
+        )
+        self.btn_novo_modelo.pack(fill="x", pady=(0, 4))
+
+        self.btn_editar_modelo = ctk.CTkButton(
+            frame_criacao, text="✏️ Editar Modelo",
+            fg_color="transparent", border_width=1, border_color="#f39c12", text_color="white", hover_color="#e67e22",
+            command=self.abrir_formulario_editar_modelo
+        )
+        self.btn_editar_modelo.pack(fill="x", pady=(0, 4))
+
+        # --- Seção 2: Lista de Elementos ---
+        lbl_lista = ctk.CTkLabel(self.painel_lateral, text="Elementos Criados", font=ctk.CTkFont(size=14, weight="bold"), text_color="gray")
+        lbl_lista.pack(pady=(15, 5))
+        
+        self.scroll_lista = ctk.CTkScrollableFrame(self.painel_lateral, height=180)
+        self.scroll_lista.pack(fill="x", padx=10, pady=0)
+
+        # --- Seção 3: Log da Simulação ---
+        self.caixa_resultado = ctk.CTkTextbox(self.painel_lateral, height=120)
+        self.caixa_resultado.pack(fill="x", padx=10, pady=15)
         self.caixa_resultado.insert("1.0", "Resultado da simulação aparecerá aqui.")
         self.caixa_resultado.configure(state="disabled")
 
-        self.btn_voltar = ctk.CTkButton(self.painel_lateral, text="Voltar à Configuração", fg_color="#555555", hover_color="#333333", command=self.voltar)
-        self.btn_voltar.pack(side="bottom", pady=(10, 15), padx=20)
+        # --- Seção 4: Arquivos e Exportação ---
+        frame_arquivos = ctk.CTkFrame(self.painel_lateral, fg_color="transparent")
+        frame_arquivos.pack(fill="x", padx=10, pady=(0, 15))
 
-        self.btn_exportar = ctk.CTkButton(self.painel_lateral, text="Exportar JSON", fg_color="orange", hover_color="#cc7000", command=self.exportar_json)
-        self.btn_exportar.pack(side="bottom", pady=5, padx=20)
+        self.btn_voltar = ctk.CTkButton(frame_arquivos, text="⬅ Voltar à Configuração", fg_color="#555555", hover_color="#333333", command=self.voltar)
+        self.btn_voltar.pack(fill="x", pady=4)
 
+        self.btn_carregar_config = ctk.CTkButton(frame_arquivos, text="📂 Carregar Configuração", fg_color="#555555", hover_color="#333333", command=self.carregar_configuracao)
+        self.btn_carregar_config.pack(fill="x", pady=4)
+
+        self.btn_salvar_config = ctk.CTkButton(frame_arquivos, text="💾 Salvar Configuração Como", fg_color="#555555", hover_color="#333333", command=self.salvar_configuracao_como)
+        self.btn_salvar_config.pack(fill="x", pady=4)
+        
+        self.btn_pasta_saida = ctk.CTkButton(frame_arquivos, text="📁 Escolher Pasta de Saída", fg_color="#555555", hover_color="#333333", command=self.escolher_pasta_saida)
+        self.btn_pasta_saida.pack(fill="x", pady=4)
+        
+        self.lbl_pasta_saida = ctk.CTkLabel(frame_arquivos, text="Saída: saida", text_color="gray", font=("Arial", 10))
+        self.lbl_pasta_saida.pack(pady=(0, 5))
+        self.atualizar_label_pasta_saida()
+
+        self.btn_exportar = ctk.CTkButton(frame_arquivos, text="🚀 Exportar JSON Final", fg_color="#d35400", hover_color="#a04000", command=self.exportar_json)
+        self.btn_exportar.pack(fill="x", pady=4)
+
+
+        # ================= ÁREA DO MAPA =================
         self.frame_mapa = ctk.CTkFrame(self.parent)
         self.frame_mapa.pack(side="left", fill="both", expand=True, padx=10, pady=10)
 
-        self.canvas = Canvas(self.frame_mapa, bg="#2b2b2b", highlightthickness=1, highlightbackground="#555555")
-        self.canvas.pack(fill="both", expand=True, padx=10, pady=(10, 4))
-        self.canvas.bind("<Button-1>", self.registrar_clique)
+        # Barra Superior de Status 
+        self.frame_status = ctk.CTkFrame(self.frame_mapa, fg_color="transparent", height=30)
+        self.frame_status.pack(fill="x", padx=10, pady=(5, 0))
+        
+        self.lbl_status = ctk.CTkLabel(self.frame_status, text="Modo: Visualização", font=ctk.CTkFont(size=14, weight="bold"), text_color="gray")
+        self.lbl_status.pack(side="left")
 
+        # Canvas do Mapa
+        self.canvas = Canvas(self.frame_mapa, bg="#222222", highlightthickness=1, highlightbackground="#444444")
+        self.canvas.pack(fill="both", expand=True, padx=10, pady=(5, 4))
+        
+        self.canvas.bind("<Button-1>", self.registrar_clique)
+        self.canvas.bind("<Double-Button-1>", self.registrar_clique_duplo)
         self.canvas.bind("<Configure>", self.redesenhar_mapa)
 
+        # Barra da Timeline (Inferior)
         self.frame_timeline = ctk.CTkFrame(self.frame_mapa)
         self.frame_timeline.pack(fill="x", padx=10, pady=(0, 10))
 
-        self.btn_simular = ctk.CTkButton(
-            self.frame_timeline,
-            text="Simular",
-            width=110,
-            fg_color="#7d3c98",
-            hover_color="#5b2c6f",
-            command=self.alternar_animacao,
-        )
+        self.btn_simular = ctk.CTkButton(self.frame_timeline, text="Simular", width=110, fg_color="#7d3c98", hover_color="#5b2c6f", command=self.alternar_animacao)
         self.btn_simular.pack(side="left", padx=(10, 8), pady=10)
 
-        self.timeline_slider = ctk.CTkSlider(
-            self.frame_timeline,
-            from_=0,
-            to=1,
-            command=self.arrastar_timeline,
-        )
+        self.timeline_slider = ctk.CTkSlider(self.frame_timeline, from_=0, to=1, command=self.arrastar_timeline)
         self.timeline_slider.set(0)
         self.timeline_slider.pack(side="left", fill="x", expand=True, padx=8)
 
-        self.lbl_tempo_timeline = ctk.CTkLabel(
-            self.frame_timeline,
-            text="t=0 / 0",
-            width=90,
-        )
+        self.lbl_tempo_timeline = ctk.CTkLabel(self.frame_timeline, text="t=0 / 0", width=90)
         self.lbl_tempo_timeline.pack(side="left", padx=8)
 
-        self.lbl_interacao = ctk.CTkLabel(
-            self.frame_timeline,
-            text="Sem simulação",
-            width=260,
-            wraplength=250,
-            justify="left",
-            anchor="w",
-        )
+        self.lbl_interacao = ctk.CTkLabel(self.frame_timeline, text="Sem simulação", width=260, wraplength=250, justify="left", anchor="w")
         self.lbl_interacao.pack(side="left", padx=(4, 10), pady=8)
 
         self.atualizar_lista_painel()
@@ -183,6 +186,52 @@ class TelaMapa:
         px_x = (km_x * largura_canvas) / largura_km
         px_y = (km_y * altura_canvas) / altura_km
         return px_x, px_y
+    
+    def desenhar_grade(self):
+        largura_canvas = self.canvas.winfo_width()
+        altura_canvas = self.canvas.winfo_height()
+        largura_km, altura_km = self.app.dados_simulacao["tamanho_ambiente"]
+
+        # Evita desenhar se a tela não carregou ainda
+        if largura_canvas <= 1 or altura_canvas <= 1:
+            return
+
+        divisoes = 10 # Desenha 10 quadrados na horizontal e vertical
+        
+        for i in range(1, divisoes):
+            # Desenha Linhas Verticais e os rótulos de KM
+            x = (largura_canvas / divisoes) * i
+            self.canvas.create_line(x, 0, x, altura_canvas, fill="#333333", dash=(2, 4))
+            km_x = (largura_km / divisoes) * i
+            self.canvas.create_text(x + 5, 10, text=f"{km_x:.0f} km", fill="#555555", anchor="nw", font=("Arial", 8))
+
+            # Desenha Linhas Horizontais e os rótulos de KM
+            y = (altura_canvas / divisoes) * i
+            self.canvas.create_line(0, y, largura_canvas, y, fill="#333333", dash=(2, 4))
+            km_y = (altura_km / divisoes) * i
+            self.canvas.create_text(5, y + 5, text=f"{km_y:.0f} km", fill="#555555", anchor="nw", font=("Arial", 8))
+    
+    def obter_imagem(self, nome_arquivo, largura, altura):
+        """Tenta carregar e redimensionar uma imagem. Retorna None se falhar."""
+        if largura <= 0 or altura <= 0:
+            return None
+            
+        caminho = Path("src/interface/assets") / nome_arquivo
+        chave_cache = f"{nome_arquivo}_{largura}_{altura}"
+        
+        if chave_cache in self.imagens_em_memoria:
+            return self.imagens_em_memoria[chave_cache]
+            
+        try:
+            # Carrega, redimensiona suavemente e converte para o Tkinter
+            img = Image.open(caminho).convert("RGBA")
+            img = img.resize((int(largura), int(altura)), Image.Resampling.LANCZOS)
+            img_tk = ImageTk.PhotoImage(img)
+            self.imagens_em_memoria[chave_cache] = img_tk
+            return img_tk
+        except Exception as e:
+            print(f"[Aviso] Não foi possível carregar a imagem '{caminho}': {e}")
+            return None
 
     def raio_km_para_pixels(self, raio_km):
         largura_canvas = self.canvas.winfo_width()
@@ -200,6 +249,9 @@ class TelaMapa:
     def redesenhar_mapa(self, event=None):
         # Limpa todos os desenhos visuais atuais do Canvas
         self.canvas.delete("all")
+
+        # --- DESENHA A GRADE PRIMEIRO PARA FICAR NO FUNDO ---
+        self.desenhar_grade()
         
         # Opcional: Você pode querer manter os IDs velhos atualizados ou recriá-los. 
         # A forma mais segura é recriar o dicionário visual.
@@ -208,14 +260,25 @@ class TelaMapa:
         # 1. Redesenha todas as Bases
         for nome_base, dados in self.app.dados_simulacao["Pontos"].items():
             px_x, px_y = self.km_para_pixels(dados["x"], dados["y"])
-            raio_visual = 10 
+            raio_x, raio_y = self.raio_km_para_pixels(dados.get("r", 5)) # Pega o raio real da base
             
-            # Recria a base e salva os novos IDs
-            id_oval = self.canvas.create_oval(px_x - raio_visual, px_y - raio_visual, px_x + raio_visual, px_y + raio_visual, fill="#2ecc71", outline="white")
-            id_texto = self.canvas.create_text(px_x, px_y + 20, text=nome_base, fill="white", font=("Arial", 12, "bold"))
-            self.canvas_items["bases"][nome_base] = {"oval": id_oval, "texto": id_texto}
+            # Garante um tamanho mínimo visual para a base não sumir se o raio for 0
+            largura_base = max(raio_x * 2, 40)
+            altura_base = max(raio_y * 2, 40)
+            
+            img_base = self.obter_imagem("base.png", largura_base, altura_base)
+            
+            if img_base:
+                id_desenho = self.canvas.create_image(px_x, px_y, image=img_base)
+            else:
+                # Fallback: se não tiver imagem, desenha a bolinha antiga
+                raio_visual = largura_base / 2
+                id_desenho = self.canvas.create_oval(px_x - raio_visual, px_y - raio_visual, px_x + raio_visual, px_y + raio_visual, fill="#2ecc71", outline="white")
+                
+            id_texto = self.canvas.create_text(px_x, px_y + (altura_base/2) + 10, text=nome_base, fill="white", font=("Arial", 12, "bold"))
+            self.canvas_items["bases"][nome_base] = {"oval": id_desenho, "texto": id_texto}
 
-        # 2. Redesenha todos os Drones
+        # 2. Redesenha Drones (Modo Estático / Edição)
         for nome_drone, dados in self.app.dados_simulacao["drones"].items():
             p1_km = self.app.dados_simulacao["Pontos"][dados["posicao_inicial"]]
             p2_km = self.app.dados_simulacao["Pontos"][dados["posicao_destino"]]
@@ -228,15 +291,11 @@ class TelaMapa:
             id_texto = self.canvas.create_text(meio_x, meio_y - 10, text=nome_drone, fill="#1f6aa5", font=("Arial", 10, "bold"))
             self.canvas_items["drones"][nome_drone] = {"linha": id_linha, "texto": id_texto}
             
-        # Se havia algo selecionado na lista, destaca novamente
         if self.item_selecionado["tipo"]:
              self.destacar_no_mapa(self.item_selecionado["tipo"], self.item_selecionado["nome"])
 
         if self.quadros_timeline:
-            self.mostrar_tempo_simulacao(
-                self.tempo_animacao_atual,
-                atualizar_slider=False,
-            )
+            self.mostrar_tempo_simulacao(self.tempo_animacao_atual, atualizar_slider=False)
 
     # ================== LÓGICA DE LISTA E SELEÇÃO ==================
     def atualizar_lista_painel(self):
@@ -308,20 +367,46 @@ class TelaMapa:
             self.destacar_no_mapa(tipo, nome)
 
     def destacar_no_mapa(self, tipo, nome):
+        # 1. Limpa qualquer anel de seleção anterior do mapa
+        if self.id_circulo_selecao:
+            self.canvas.delete(self.id_circulo_selecao)
+            self.id_circulo_selecao = None
+
+        # 2. Reseta as cores de todos os textos e drones para o padrão
         for n, items in self.canvas_items["bases"].items():
-            self.canvas.itemconfig(items["oval"], outline="white", width=1)
+            self.canvas.itemconfig(items["texto"], fill="white")
+            # Reseta a bolinha verde caso o fallback sem imagem tenha sido ativado
+            try: self.canvas.itemconfig(items["oval"], outline="white", width=1) 
+            except: pass 
+
         for n, items in self.canvas_items["drones"].items():
             self.canvas.itemconfig(items["linha"], fill="#1f6aa5", width=2)
             self.canvas.itemconfig(items["texto"], fill="#1f6aa5")
 
-        if tipo == "base" and nome in self.canvas_items["bases"]:
-            id_oval = self.canvas_items["bases"][nome]["oval"]
-            self.canvas.itemconfig(id_oval, outline="yellow", width=3)
+        # 3. A SUA IDEIA: Destacar a Base usando a matemática do Raio
+        if tipo == "base" and nome in self.app.dados_simulacao["Pontos"]:
+            dados = self.app.dados_simulacao["Pontos"][nome]
+            px_x, px_y = self.km_para_pixels(dados["x"], dados["y"])
+            raio_x, raio_y = self.raio_km_para_pixels(dados.get("r", 1.0))
+            
+            # Pega o mesmo tamanho limite que usamos para redimensionar a imagem
+            raio_visual_x = max(raio_x, 20)
+            raio_visual_y = max(raio_y, 20)
+            
+            # Desenha um aro amarelo lindo e tracejado levemente por fora da imagem
+            self.id_circulo_selecao = self.canvas.create_oval(
+                px_x - raio_visual_x - 4, px_y - raio_visual_y - 4,
+                px_x + raio_visual_x + 4, px_y + raio_visual_y + 4,
+                outline="yellow", width=3, dash=(4, 4)
+            )
+            # Deixa o texto amarelinho também
+            self.canvas.itemconfig(self.canvas_items["bases"][nome]["texto"], fill="yellow")
+
+        # 4. Destaca os Drones (como já funcionava antes)
         elif tipo == "drone" and nome in self.canvas_items["drones"]:
-            id_linha = self.canvas_items["drones"][nome]["linha"]
-            id_texto = self.canvas_items["drones"][nome]["texto"]
-            self.canvas.itemconfig(id_linha, fill="yellow", width=4)
-            self.canvas.itemconfig(id_texto, fill="yellow")
+            items = self.canvas_items["drones"][nome]
+            self.canvas.itemconfig(items["linha"], fill="yellow", width=4)
+            self.canvas.itemconfig(items["texto"], fill="yellow")
 
     # ================== LÓGICA DE CLIQUE NO MAPA ==================
     def ativar_modo_base(self):
@@ -344,13 +429,39 @@ class TelaMapa:
             self.abrir_formulario_base(km_x, km_y)
         elif self.modo_atual == "drone":
             self.logica_clique_drone(px_x, px_y)
+        else:
+            # MODO VISUALIZAÇÃO (Clique Simples): Apenas seleciona visualmente
+            base_clicada = self.encontrar_base_proxima(px_x, px_y)
+            
+            if base_clicada:
+                self.item_selecionado = {"tipo": "base", "nome": base_clicada}
+                self.destacar_no_mapa("base", base_clicada)
+            else:
+                self.limpar_selecao_visual()
+
+    def registrar_clique_duplo(self, event):
+        # MODO VISUALIZAÇÃO (Clique Duplo): Abre o formulário de edição
+        if self.modo_atual is None:
+            px_x, px_y = event.x, event.y
+            base_clicada = self.encontrar_base_proxima(px_x, px_y)
+            
+            if base_clicada:
+                self.abrir_formulario_base(km_x=0, km_y=0, editando_nome=base_clicada)
 
     def encontrar_base_proxima(self, px_x, px_y):
         for nome_base, coords in self.app.dados_simulacao["Pontos"].items():
-            # Converte a posição guardada em km de volta para pixel para calcular a colisão com o mouse
+            # Converte a posição guardada em km de volta para pixel
             base_px_x, base_px_y = self.km_para_pixels(coords["x"], coords["y"])
+            
+            # Pega o raio da base convertido para pixels
+            raio_x, raio_y = self.raio_km_para_pixels(coords.get("r", 1.0))
+            
+            # A área de clique será o próprio tamanho da imagem, ou no mínimo 35 pixels 
+            # para garantir que bases com raio 0 continuem sendo clicáveis
+            raio_de_clique = max(raio_x, raio_y, 35)
+            
             distancia = math.hypot(px_x - base_px_x, px_y - base_px_y)
-            if distancia <= 35:  
+            if distancia <= raio_de_clique:  
                 return nome_base
         return None
 
@@ -370,9 +481,19 @@ class TelaMapa:
         if self.base_origem_temp is None:
             self.base_origem_temp = base_clicada
             self.lbl_status.configure(text=f"Origem: {base_clicada}. Clique no Destino.", text_color="orange")
+            
             coords = self.app.dados_simulacao["Pontos"][base_clicada]
             base_px_x, base_px_y = self.km_para_pixels(coords["x"], coords["y"])
-            self.id_circulo_selecao = self.canvas.create_oval(base_px_x - 18, base_px_y - 18, base_px_x + 18, base_px_y + 18, outline="orange", width=2, dash=(4, 4))
+            raio_x, raio_y = self.raio_km_para_pixels(coords.get("r", 1.0))
+            
+            raio_visual_x = max(raio_x, 20)
+            raio_visual_y = max(raio_y, 20)
+            
+            self.id_circulo_selecao = self.canvas.create_oval(
+                base_px_x - raio_visual_x - 4, base_px_y - raio_visual_y - 4, 
+                base_px_x + raio_visual_x + 4, base_px_y + raio_visual_y + 4, 
+                outline="orange", width=3, dash=(4, 4)
+            )
         else:
             base_destino = base_clicada
             if base_destino == self.base_origem_temp:
@@ -380,7 +501,12 @@ class TelaMapa:
                 self.ativar_modo_visualizacao()
                 return
             
-            self.abrir_formulario_drone(self.base_origem_temp, base_destino)
+            # --- MÁGICA DOS MODELOS AQUI ---
+            modelo_selecionado = self.var_modelo_ativo.get()
+            if modelo_selecionado == "Personalizado":
+                self.abrir_formulario_drone(self.base_origem_temp, base_destino)
+            else:
+                self.criar_drone_por_modelo(self.base_origem_temp, base_destino, modelo_selecionado)
 
     def ativar_modo_visualizacao(self):
         self.modo_atual = None
@@ -664,79 +790,68 @@ class TelaMapa:
         for nome_drone in nomes_drones:
             dados_a = estado_a.get(nome_drone) or estado_b[nome_drone]
             dados_b = estado_b.get(nome_drone) or dados_a
-            posicao_a = dados_a["posicao_atual"]
-            posicao_b = dados_b["posicao_atual"]
-            posicao = [
-                posicao_a[0] + (posicao_b[0] - posicao_a[0]) * fracao,
-                posicao_a[1] + (posicao_b[1] - posicao_a[1]) * fracao,
-            ]
+            
             status = self.status_animado(dados_a["status"], dados_b["status"], fracao)
+            
+            # --- SOLUÇÃO 2: Puxar para o Centro ---
+            if status == "entregou":
+                destino_nome = self.app.dados_simulacao["drones"][nome_drone]["posicao_destino"]
+                p_destino = self.app.dados_simulacao["Pontos"][destino_nome]
+                posicao = [p_destino["x"], p_destino["y"]]
+            else:
+                posicao_a = dados_a["posicao_atual"]
+                posicao_b = dados_b["posicao_atual"]
+                posicao = [
+                    posicao_a[0] + (posicao_b[0] - posicao_a[0]) * fracao,
+                    posicao_a[1] + (posicao_b[1] - posicao_a[1]) * fracao,
+                ]
+            
             px_x, px_y = self.km_para_pixels(posicao[0], posicao[1])
             cor = self.cor_status(status)
-            raio_marcador = 6
-            raio_drone = float(
-                self.app.dados_simulacao["drones"]
-                .get(nome_drone, {})
-                .get("raio", 0)
+            
+            # --- SOLUÇÃO 3: Rastro Dinâmico ---
+            origem_nome = self.app.dados_simulacao["drones"][nome_drone]["posicao_inicial"]
+            p_origem = self.app.dados_simulacao["Pontos"][origem_nome]
+            origem_px_x, origem_px_y = self.km_para_pixels(p_origem["x"], p_origem["y"])
+            
+            self.canvas.create_line(
+                origem_px_x, origem_px_y, px_x, px_y, 
+                fill=cor, width=2, dash=(4,4), tags=("simulacao",)
             )
-            if fracao > 0 and posicao_a != posicao_b:
-                inicio_x, inicio_y = self.km_para_pixels(posicao_a[0], posicao_a[1])
-                self.canvas.create_line(
-                    inicio_x,
-                    inicio_y,
-                    px_x,
-                    px_y,
-                    fill=cor,
-                    width=3,
-                    tags=("simulacao",),
-                )
-            if raio_drone > 0:
-                raio_x, raio_y = self.raio_km_para_pixels(raio_drone)
+
+            # --- SOLUÇÃO 1 e IMAGENS: Drones e Colisões ---
+            raio_drone = float(self.app.dados_simulacao["drones"].get(nome_drone, {}).get("raio", 0))
+            raio_x, raio_y = self.raio_km_para_pixels(raio_drone)
+            
+            # Fator de 0.8 (80%) para compensar a imagem quadrada e deixá-la proporcional ao círculo da base
+            largura_drone = max((raio_x * 2) * 0.8, 30)
+            altura_drone = max((raio_y * 2) * 0.8, 30)
+            
+            if status.startswith("bateu"):
+                # Se bateu, tenta desenhar a explosão!
+                img = self.obter_imagem("explosao.png", largura_drone, altura_drone)
+            else:
+                img = self.obter_imagem("drone.png", largura_drone, altura_drone)
+
+            if img:
+                self.canvas.create_image(px_x, px_y, image=img, tags=("simulacao",))
+            else:
+                # Fallback: Se não achar imagem na pasta, desenha os círculos nativos
+                raio_marcador = 6
                 raio_x = max(raio_x, raio_marcador + 7)
                 raio_y = max(raio_y, raio_marcador + 7)
-                self.canvas.create_oval(
-                    px_x - raio_x,
-                    px_y - raio_y,
-                    px_x + raio_x,
-                    px_y + raio_y,
-                    outline=cor,
-                    width=2,
-                    tags=("simulacao",),
-                )
-                self.canvas.create_text(
-                    px_x + raio_x + 16,
-                    px_y,
-                    text=f"r={self.formatar_tempo(raio_drone)}",
-                    fill=cor,
-                    font=("Arial", 9, "bold"),
-                    tags=("simulacao",),
-                )
-            self.canvas.create_oval(
-                px_x - raio_marcador,
-                px_y - raio_marcador,
-                px_x + raio_marcador,
-                px_y + raio_marcador,
-                fill=cor,
-                outline="white",
-                width=2,
-                tags=("simulacao",),
-            )
-            self.canvas.create_text(
-                px_x,
-                px_y - 18,
-                text=nome_drone,
-                fill="white",
-                font=("Arial", 10, "bold"),
-                tags=("simulacao",),
-            )
-            self.canvas.create_text(
-                px_x,
-                px_y + 18,
-                text=status,
-                fill=cor,
-                font=("Arial", 9, "bold"),
-                tags=("simulacao",),
-            )
+                
+                # Se bateu e não tem imagem, desenha o drone em vermelho
+                if status.startswith("bateu"):
+                    self.canvas.create_oval(px_x - raio_x, px_y - raio_y, px_x + raio_x, px_y + raio_y, outline="red", width=3, tags=("simulacao",))
+                else:
+                    self.canvas.create_oval(px_x - raio_x, px_y - raio_y, px_x + raio_x, px_y + raio_y, outline=cor, width=2, tags=("simulacao",))
+                    self.canvas.create_oval(px_x - raio_marcador, px_y - raio_marcador, px_x + raio_marcador, px_y + raio_marcador, fill=cor, outline="white", width=2, tags=("simulacao",))
+
+            # Desenha os Textos sempre (Nome e Status)
+            self.canvas.create_text(px_x + (largura_drone/2) + 16, px_y, text=f"r={self.formatar_tempo(raio_drone)}", fill=cor, font=("Arial", 9, "bold"), tags=("simulacao",))
+            self.canvas.create_text(px_x, px_y - (altura_drone/2) - 10, text=nome_drone, fill="white", font=("Arial", 10, "bold"), tags=("simulacao",))
+            self.canvas.create_text(px_x, px_y + (altura_drone/2) + 10, text=status, fill=cor, font=("Arial", 9, "bold"), tags=("simulacao",))
 
     def status_animado(self, status_a, status_b, fracao):
         if fracao <= 0.001:
@@ -852,23 +967,50 @@ class TelaMapa:
 
     def salvar_base(self, nome, km_x, km_y, raio, editando_nome):
         self.limpar_simulacao_exibida()
-        # Salva os dados lógicos em KM perfeitamente!
+        
+        # 1. Se mudou o nome da base, precisamos fazer uma "limpeza" nas referências antigas
+        if editando_nome and editando_nome != nome:
+            # A. Atualiza o nome da base dentro dos drones que estavam ligados a ela
+            for d_nome, d_dados in self.app.dados_simulacao.get("drones", {}).items():
+                if d_dados.get("posicao_inicial") == editando_nome:
+                    d_dados["posicao_inicial"] = nome
+                if d_dados.get("posicao_destino") == editando_nome:
+                    d_dados["posicao_destino"] = nome
+                    
+            # B. Apaga a chave antiga do dicionário lógico de Pontos
+            if editando_nome in self.app.dados_simulacao["Pontos"]:
+                del self.app.dados_simulacao["Pontos"][editando_nome]
+
+        # 2. Salva os dados lógicos em KM perfeitamente!
         self.app.dados_simulacao["Pontos"][nome] = {"x": km_x, "y": km_y, "r": raio}
         
-        if editando_nome:
-            id_oval_antigo = self.canvas_items["bases"][nome]["oval"]
-            id_texto_antigo = self.canvas_items["bases"][nome]["texto"]
+        # 3. Apaga o desenho antigo usando o NOME ANTIGO (editando_nome)
+        if editando_nome and editando_nome in self.canvas_items["bases"]:
+            id_oval_antigo = self.canvas_items["bases"][editando_nome]["oval"]
+            id_texto_antigo = self.canvas_items["bases"][editando_nome]["texto"]
             self.canvas.delete(id_oval_antigo)
             self.canvas.delete(id_texto_antigo)
+            del self.canvas_items["bases"][editando_nome] # Remove a chave velha do cache visual
 
-        # Converte para pixels apenas para desenhar na tela do usuário
+        # ====== LÓGICA DE IMAGEM AO CRIAR NOVA BASE ======
         px_x, px_y = self.km_para_pixels(km_x, km_y)
-        raio_visual = 10 
-        id_oval = self.canvas.create_oval(px_x - raio_visual, px_y - raio_visual, px_x + raio_visual, px_y + raio_visual, fill="#2ecc71", outline="white")
-        id_texto = self.canvas.create_text(px_x, px_y + 20, text=nome, fill="white", font=("Arial", 12, "bold"))
-        self.canvas_items["bases"][nome] = {"oval": id_oval, "texto": id_texto}
+        raio_x, raio_y = self.raio_km_para_pixels(raio)
         
-        # Atualiza rotas de drones grudadinhos
+        largura_base = max(raio_x * 2, 40)
+        altura_base = max(raio_y * 2, 40)
+        img_base = self.obter_imagem("base.png", largura_base, altura_base)
+        
+        if img_base:
+            id_desenho = self.canvas.create_image(px_x, px_y, image=img_base)
+        else:
+            raio_visual = largura_base / 2
+            id_desenho = self.canvas.create_oval(px_x - raio_visual, px_y - raio_visual, px_x + raio_visual, px_y + raio_visual, fill="#2ecc71", outline="white")
+            
+        id_texto = self.canvas.create_text(px_x, px_y + (altura_base/2) + 10, text=nome, fill="white", font=("Arial", 12, "bold"))
+        self.canvas_items["bases"][nome] = {"oval": id_desenho, "texto": id_texto}
+        # =================================================
+        
+        # Atualiza rotas de drones grudadinhos (Agora ele vai achar certinho com o 'nome' novo)
         for nome_drone, dados_drone in self.app.dados_simulacao["drones"].items():
             origem = dados_drone["posicao_inicial"]
             destino = dados_drone["posicao_destino"]
@@ -908,14 +1050,74 @@ class TelaMapa:
 
     def abrir_formulario_drone(self, origem, destino, editando_nome=None):
         JanelaFormularioDrone(self, origem, destino, editando_nome)
+        
+    def abrir_formulario_novo_modelo(self):
+        JanelaFormularioModeloDrone(self)
 
-    def salvar_drone(self, nome, origem, destino, velocidade, raio, editando_nome):
+    def adicionar_modelo_drone(self, nome, vel, raio):
+        # Salva o molde na memória e zera o contador de "filhos" criados
+        self.modelos_drones[nome] = {"velocidade": vel, "raio": raio, "contador": 0}
+        
+        # Atualiza a lista da caixinha (OptionMenu)
+        valores_atuais = self.combo_modelos.cget("values")
+        if nome not in valores_atuais:
+            self.combo_modelos.configure(values=valores_atuais + [nome])
+        
+        self.var_modelo_ativo.set(nome) # Já deixa o novo modelo selecionado
+        messagebox.showinfo("Sucesso", f"Modelo '{nome}' criado e ativado!")
+
+    def abrir_formulario_editar_modelo(self):
+        modelo_selecionado = self.var_modelo_ativo.get()
+        if modelo_selecionado == "Personalizado":
+            messagebox.showwarning("Aviso", "Selecione um modelo criado por você para poder editar.")
+            return
+        
+        # Abre a janela passando o nome do modelo que vamos editar
+        JanelaFormularioModeloDrone(self, editando_modelo=modelo_selecionado)
+
+    def atualizar_modelo_drone(self, nome_modelo, vel, raio):
+        # 1. Atualiza o molde na memória
+        self.modelos_drones[nome_modelo]["velocidade"] = vel
+        self.modelos_drones[nome_modelo]["raio"] = raio
+        
+        # 2. Varre o JSON inteiro e atualiza todos os "filhos" que tenham a etiqueta
+        drones_atualizados = 0
+        for nome_drone, dados_drone in self.app.dados_simulacao.get("drones", {}).items():
+            if dados_drone.get("modelo_base") == nome_modelo:
+                dados_drone["velocidade"] = vel
+                dados_drone["raio"] = raio
+                drones_atualizados += 1
+                
+        self.atualizar_lista_painel()
+        self.redesenhar_mapa()
+        messagebox.showinfo("Sucesso", f"Modelo '{nome_modelo}' atualizado!\n{drones_atualizados} drone(s) foram modificados no mapa.")
+
+    def criar_drone_por_modelo(self, origem, destino, nome_modelo):
+        modelo = self.modelos_drones[nome_modelo]
+        modelo["contador"] += 1
+        
+        novo_nome = f"{nome_modelo} {modelo['contador']}"
+        
+        # MUDANÇA: Previne conflito caso o nome já exista em Drones OU nas Bases!
+        while (novo_nome in self.app.dados_simulacao["drones"]) or (novo_nome in self.app.dados_simulacao["Pontos"]):
+            modelo["contador"] += 1
+            novo_nome = f"{nome_modelo} {modelo['contador']}"
+
+        self.salvar_drone(novo_nome, origem, destino, modelo["velocidade"], modelo["raio"], editando_nome=None, modelo_base=nome_modelo)
+
+    def salvar_drone(self, nome, origem, destino, velocidade, raio, editando_nome, modelo_base=None):
         self.limpar_simulacao_exibida()
+        
+        # MUDANÇA: Se estivermos apenas editando a rota/nome de um drone existente, não podemos perder a etiqueta dele!
+        if editando_nome and modelo_base is None:
+            modelo_base = self.app.dados_simulacao["drones"][editando_nome].get("modelo_base")
+
         self.app.dados_simulacao["drones"][nome] = {
             "posicao_inicial": origem,
             "posicao_destino": destino,
             "raio": raio,
-            "velocidade": velocidade
+            "velocidade": velocidade,
+            "modelo_base": modelo_base  # <-- Etiqueta gravada!
         }
         self.app.dados_simulacao["numero_drones"] = len(self.app.dados_simulacao["drones"])
 
@@ -973,38 +1175,45 @@ class JanelaFormularioBase(ctk.CTkToplevel):
         self.editando_nome = editando_nome
 
         self.title("Configuração de Base")
-        self.geometry("320x350")
+        self.geometry("350x450")
         self.attributes("-topmost", True) 
 
         lbl_titulo = ctk.CTkLabel(self, text="Dados da Base", font=("Arial", 16, "bold"))
-        lbl_titulo.pack(pady=10)
+        lbl_titulo.pack(pady=(15, 10))
 
-        self.entrada_nome = ctk.CTkEntry(self, placeholder_text="Nome (ex: Base 1)")
-        self.entrada_nome.pack(pady=5, padx=20, fill="x")
+        lbl_nome = ctk.CTkLabel(self, text="Nome da Base:", text_color="gray", anchor="w")
+        lbl_nome.pack(padx=20, fill="x")
+        self.entrada_nome = ctk.CTkEntry(self, placeholder_text="ex: Base 1")
+        self.entrada_nome.pack(pady=(0, 10), padx=20, fill="x")
 
-        self.entrada_x = ctk.CTkEntry(self, placeholder_text="Coordenada X (km)")
-        self.entrada_x.pack(pady=5, padx=20, fill="x")
+        lbl_x = ctk.CTkLabel(self, text="Coordenada X (km):", text_color="gray", anchor="w")
+        lbl_x.pack(padx=20, fill="x")
+        self.entrada_x = ctk.CTkEntry(self, placeholder_text="ex: 100.0")
+        self.entrada_x.pack(pady=(0, 10), padx=20, fill="x")
         self.entrada_x.insert(0, str(km_x)) 
 
-        self.entrada_y = ctk.CTkEntry(self, placeholder_text="Coordenada Y (km)")
-        self.entrada_y.pack(pady=5, padx=20, fill="x")
+        lbl_y = ctk.CTkLabel(self, text="Coordenada Y (km):", text_color="gray", anchor="w")
+        lbl_y.pack(padx=20, fill="x")
+        self.entrada_y = ctk.CTkEntry(self, placeholder_text="ex: 150.0")
+        self.entrada_y.pack(pady=(0, 10), padx=20, fill="x")
         self.entrada_y.insert(0, str(km_y))
 
-        self.entrada_raio = ctk.CTkEntry(self, placeholder_text="Raio de Chegada (km)")
-        self.entrada_raio.pack(pady=5, padx=20, fill="x")
+        lbl_raio = ctk.CTkLabel(self, text="Raio de Chegada / Tamanho (km):", text_color="gray", anchor="w")
+        lbl_raio.pack(padx=20, fill="x")
+        self.entrada_raio = ctk.CTkEntry(self, placeholder_text="ex: 5.0")
+        self.entrada_raio.pack(pady=(0, 15), padx=20, fill="x")
 
         if editando_nome:
             dados_atuais = self.tela_mapa.app.dados_simulacao["Pontos"][editando_nome]
             self.entrada_nome.insert(0, editando_nome)
-            self.entrada_nome.configure(state="disabled") 
             self.entrada_x.delete(0, 'end')
             self.entrada_x.insert(0, str(dados_atuais["x"]))
             self.entrada_y.delete(0, 'end')
             self.entrada_y.insert(0, str(dados_atuais["y"]))
-            self.entrada_raio.insert(0, str(dados_atuais["r"]))
+            self.entrada_raio.insert(0, str(dados_atuais.get("r", 1.0)))
 
         frame_botoes = ctk.CTkFrame(self, fg_color="transparent")
-        frame_botoes.pack(pady=15)
+        frame_botoes.pack(pady=10)
 
         btn_salvar = ctk.CTkButton(frame_botoes, text="Salvar", command=self.salvar, width=100)
         btn_salvar.pack(side="left", padx=10)
@@ -1016,25 +1225,41 @@ class JanelaFormularioBase(ctk.CTkToplevel):
         ativar_modal_quando_visivel(self)
 
     def salvar(self):
-        nome = self.entrada_nome.get()
+        nome = self.entrada_nome.get().strip()
+
+        if not nome:
+            messagebox.showerror("Erro", "O nome não pode ficar vazio.")
+            self.attributes("-topmost", True)
+            return
+
+        # ================= LÓGICA DE BLOQUEIO ABSOLUTO =================
+        # 1. Bloqueia se o nome já for usado por uma Base (e não for a que estamos editando)
+        if nome in self.tela_mapa.app.dados_simulacao.get("Pontos", {}):
+            if self.editando_nome != nome:
+                messagebox.showerror("Erro", f"Já existe uma Base chamada '{nome}'!")
+                self.attributes("-topmost", True)
+                return
+
+        # 2. Bloqueia se o nome já for usado por um Drone
+        if nome in self.tela_mapa.app.dados_simulacao.get("drones", {}):
+            if self.editando_nome != nome:
+                messagebox.showerror("Erro", f"Já existe um Drone chamado '{nome}'!")
+                self.attributes("-topmost", True)
+                return
+        # ===============================================================
+
         try:
             val_x = float(self.entrada_x.get())
             val_y = float(self.entrada_y.get())
             val_raio = float(self.entrada_raio.get())
             
-            # Validação: Não deixa colocar coordenadas em km maiores que o tamanho do ambiente
             max_largura, max_altura = self.tela_mapa.app.dados_simulacao["tamanho_ambiente"]
             if val_x < 0 or val_x > max_largura or val_y < 0 or val_y > max_altura:
-                messagebox.showerror("Erro", f"As coordenadas devem estar dentro do mapa lógico (0 a {max_largura} em X, 0 a {max_altura} em Y).")
+                messagebox.showerror("Erro", f"As coordenadas devem estar dentro do mapa (0 a {max_largura} em X, 0 a {max_altura} em Y).")
                 self.attributes("-topmost", True)
                 return
         except ValueError:
-            messagebox.showerror("Erro", "Valores devem ser numéricos.")
-            self.attributes("-topmost", True)
-            return
-
-        if not nome:
-            messagebox.showerror("Erro", "O nome não pode ficar vazio.")
+            messagebox.showerror("Erro", "Valores devem ser numéricos (use ponto para decimais).")
             self.attributes("-topmost", True)
             return
 
@@ -1059,21 +1284,32 @@ class JanelaFormularioDrone(ctk.CTkToplevel):
         self.editando_nome = editando_nome
 
         self.title("Configuração do Drone")
-        self.geometry("320x300")
+        # Aumentei a janela para 450px de altura para caberem os novos textos confortavelmente
+        self.geometry("350x450")
         self.attributes("-topmost", True)
 
         lbl_titulo = ctk.CTkLabel(self, text="Dados do Drone", font=("Arial", 16, "bold"))
-        lbl_titulo.pack(pady=10)
+        lbl_titulo.pack(pady=(15, 10))
 
-        self.entrada_nome = ctk.CTkEntry(self, placeholder_text="Identificador (ex: Drone 1)")
-        self.entrada_nome.pack(pady=10, padx=20, fill="x")
+        # --- NOME ---
+        lbl_nome = ctk.CTkLabel(self, text="Identificador do Drone:", text_color="gray", anchor="w")
+        lbl_nome.pack(padx=20, fill="x")
+        self.entrada_nome = ctk.CTkEntry(self, placeholder_text="ex: Drone 1")
+        self.entrada_nome.pack(pady=(0, 10), padx=20, fill="x")
 
-        self.entrada_vel = ctk.CTkEntry(self, placeholder_text="Velocidade (km/h)")
-        self.entrada_vel.pack(pady=10, padx=20, fill="x")
+        # --- VELOCIDADE ---
+        lbl_vel = ctk.CTkLabel(self, text="Velocidade Média (km/h):", text_color="gray", anchor="w")
+        lbl_vel.pack(padx=20, fill="x")
+        self.entrada_vel = ctk.CTkEntry(self, placeholder_text="ex: 60.0")
+        self.entrada_vel.pack(pady=(0, 10), padx=20, fill="x")
 
-        self.entrada_raio = ctk.CTkEntry(self, placeholder_text="Raio do Drone (Colisão)")
-        self.entrada_raio.pack(pady=10, padx=20, fill="x")
+        # --- RAIO ---
+        lbl_raio = ctk.CTkLabel(self, text="Raio de Colisão (km):", text_color="gray", anchor="w")
+        lbl_raio.pack(padx=20, fill="x")
+        self.entrada_raio = ctk.CTkEntry(self, placeholder_text="ex: 2.0")
+        self.entrada_raio.pack(pady=(0, 15), padx=20, fill="x")
 
+        # Se estiver editando, recuperamos as informações
         if editando_nome:
             dados_atuais = self.tela_mapa.app.dados_simulacao["drones"][editando_nome]
             self.origem = dados_atuais["posicao_inicial"]
@@ -1084,11 +1320,22 @@ class JanelaFormularioDrone(ctk.CTkToplevel):
             self.entrada_vel.insert(0, str(dados_atuais["velocidade"]))
             self.entrada_raio.insert(0, str(dados_atuais["raio"]))
 
-        lbl_info = ctk.CTkLabel(self, text=f"Rota: {self.origem} -> {self.destino}", text_color="gray")
-        lbl_info.pack(pady=5)
+        # --- MATEMÁTICA DA DISTÂNCIA ---
+        p1 = self.tela_mapa.app.dados_simulacao["Pontos"][self.origem]
+        p2 = self.tela_mapa.app.dados_simulacao["Pontos"][self.destino]
+        # math.hypot calcula a hipotenusa (distância entre dois pontos)
+        distancia_km = math.hypot(p2["x"] - p1["x"], p2["y"] - p1["y"])
 
+        # --- ROTA E DISTÂNCIA ---
+        texto_rota = f"📍 Rota: {self.origem} ➔ {self.destino}"
+        texto_distancia = f"📏 Distância da viagem: {distancia_km:.2f} km"
+        
+        lbl_info = ctk.CTkLabel(self, text=f"{texto_rota}\n{texto_distancia}", text_color="#3498db", font=("Arial", 13, "bold"))
+        lbl_info.pack(pady=(5, 15))
+
+        # --- BOTÕES ---
         frame_botoes = ctk.CTkFrame(self, fg_color="transparent")
-        frame_botoes.pack(pady=10)
+        frame_botoes.pack(pady=5)
 
         btn_salvar = ctk.CTkButton(frame_botoes, text="Salvar", command=self.salvar, width=100)
         btn_salvar.pack(side="left", padx=10)
@@ -1101,15 +1348,30 @@ class JanelaFormularioDrone(ctk.CTkToplevel):
 
     def salvar(self):
         nome = self.entrada_nome.get()
+        
+        if not nome:
+            messagebox.showerror("Erro", "O identificador não pode ficar vazio.")
+            self.attributes("-topmost", True)
+            return
+
+        # --- MUDANÇA: Validação de nome global (Drones e Bases) ---
+        nome_em_uso_drones = (not self.editando_nome and nome in self.tela_mapa.app.dados_simulacao["drones"]) or \
+                             (self.editando_nome and nome != self.editando_nome and nome in self.tela_mapa.app.dados_simulacao["drones"])
+                             
+        nome_em_uso_bases = nome in self.tela_mapa.app.dados_simulacao.get("Pontos", {})
+
+        if nome_em_uso_drones or nome_em_uso_bases:
+            messagebox.showerror("Erro", "Já existe um elemento (Base ou Drone) com esse nome!")
+            self.attributes("-topmost", True)
+            return
+        # ----------------------------------------------------------
+
         try:
             vel = float(self.entrada_vel.get())
             raio = float(self.entrada_raio.get())
         except ValueError:
             messagebox.showerror("Erro", "Velocidade e Raio devem ser numéricos!")
             self.attributes("-topmost", True)
-            return
-
-        if not nome:
             return
 
         self.tela_mapa.salvar_drone(nome, self.origem, self.destino, vel, raio, self.editando_nome)
@@ -1119,3 +1381,72 @@ class JanelaFormularioDrone(ctk.CTkToplevel):
         if messagebox.askyesno("Confirmar", f"Tem certeza que deseja apagar o '{self.editando_nome}'?"):
             self.tela_mapa.deletar_drone(self.editando_nome)
             self.destroy()
+
+class JanelaFormularioModeloDrone(ctk.CTkToplevel):
+    def __init__(self, tela_mapa, editando_modelo=None):
+        super().__init__()
+        self.tela_mapa = tela_mapa
+        self.editando_modelo = editando_modelo
+
+        titulo = "Editar Modelo" if editando_modelo else "Criar Modelo"
+        self.title(titulo)
+        self.geometry("350x380")
+        self.attributes("-topmost", True)
+        self.grab_set()
+
+        lbl_titulo = ctk.CTkLabel(self, text=titulo, font=("Arial", 16, "bold"))
+        lbl_titulo.pack(pady=(15, 10))
+
+        lbl_nome = ctk.CTkLabel(self, text="Nome do Modelo:", text_color="gray", anchor="w")
+        lbl_nome.pack(padx=20, fill="x")
+        self.entrada_nome = ctk.CTkEntry(self, placeholder_text="ex: Hopstein")
+        self.entrada_nome.pack(pady=(0, 10), padx=20, fill="x")
+
+        lbl_vel = ctk.CTkLabel(self, text="Velocidade Média (km/h):", text_color="gray", anchor="w")
+        lbl_vel.pack(padx=20, fill="x")
+        self.entrada_vel = ctk.CTkEntry(self, placeholder_text="ex: 60.0")
+        self.entrada_vel.pack(pady=(0, 10), padx=20, fill="x")
+
+        lbl_raio = ctk.CTkLabel(self, text="Raio de Colisão (km):", text_color="gray", anchor="w")
+        lbl_raio.pack(padx=20, fill="x")
+        self.entrada_raio = ctk.CTkEntry(self, placeholder_text="ex: 2.0")
+        self.entrada_raio.pack(pady=(0, 15), padx=20, fill="x")
+
+        # Se estiver editando, bloqueia o nome e preenche os campos
+        if self.editando_modelo:
+            dados = self.tela_mapa.modelos_drones[self.editando_modelo]
+            self.entrada_nome.insert(0, self.editando_modelo)
+            self.entrada_nome.configure(state="disabled")
+            self.entrada_vel.insert(0, str(dados["velocidade"]))
+            self.entrada_raio.insert(0, str(dados["raio"]))
+
+        btn_salvar = ctk.CTkButton(self, text="Salvar Modelo", command=self.salvar, width=150)
+        btn_salvar.pack(pady=15)
+
+        ativar_modal_quando_visivel(self)
+
+    def salvar(self):
+        nome = self.entrada_nome.get().strip()
+        try:
+            vel = float(self.entrada_vel.get())
+            raio = float(self.entrada_raio.get())
+        except ValueError:
+            messagebox.showerror("Erro", "Velocidade e Raio devem ser numéricos!")
+            self.attributes("-topmost", True)
+            return
+
+        if not nome:
+            messagebox.showerror("Erro", "O modelo precisa de um nome!")
+            self.attributes("-topmost", True)
+            return
+
+        if self.editando_modelo:
+            self.tela_mapa.atualizar_modelo_drone(nome, vel, raio)
+        else:
+            if nome == "Personalizado" or nome in self.tela_mapa.modelos_drones:
+                messagebox.showerror("Erro", "Nome de modelo inválido ou já existente.")
+                self.attributes("-topmost", True)
+                return
+            self.tela_mapa.adicionar_modelo_drone(nome, vel, raio)
+            
+        self.destroy()
