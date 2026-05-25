@@ -137,7 +137,7 @@ class JanelaFormularioDrone(ctk.CTkToplevel):
         self.editando_nome = editando_nome
 
         self.title("Configuração do Drone")
-        self.geometry("350x330")
+        self.geometry("350x420")
         self.attributes("-topmost", True)
 
         lbl_titulo = ctk.CTkLabel(self, text="Dados do Drone", font=("Arial", 16, "bold"))
@@ -164,9 +164,11 @@ class JanelaFormularioDrone(ctk.CTkToplevel):
         # Se estiver editando, recuperamos as informações
         if editando_nome:
             dados_atuais = self.tela_mapa.app.dados_simulacao["drones"][editando_nome]
-            self.origem = dados_atuais["posicao_inicial"]
-            rota_nomes = dados_atuais.get("rota", [dados_atuais.get("posicao_destino")])
-            self.destino = ", ".join([r for r in rota_nomes if r])
+            if not self.origem:
+                self.origem = dados_atuais["posicao_inicial"]
+            if not self.destino:
+                rota_nomes = dados_atuais.get("rota", [dados_atuais.get("posicao_destino")])
+                self.destino = ", ".join([r for r in rota_nomes if r])
             
             self.entrada_nome.insert(0, editando_nome)
             self.entrada_nome.configure(state="disabled")
@@ -178,7 +180,11 @@ class JanelaFormularioDrone(ctk.CTkToplevel):
         
         texto_rota = f"Rota: {self.origem} ➔ {' ➔ '.join(self.lista_destinos)}"
         self.lbl_rota_atual = ctk.CTkLabel(self, text=texto_rota, text_color="#2ecc71", font=("Arial", 12, "bold"), wraplength=300)
-        self.lbl_rota_atual.pack(pady=(15, 15), padx=20)
+        self.lbl_rota_atual.pack(pady=(15, 10), padx=20)
+
+        if editando_nome:
+            btn_editar_rota = ctk.CTkButton(self, text="Redesenhar Rota no Mapa", fg_color="#f39c12", hover_color="#d68910", command=self.acionar_edicao_rota)
+            btn_editar_rota.pack(pady=(0, 10), padx=20)
 
         # --- BOTÕES ---
         frame_botoes = ctk.CTkFrame(self, fg_color="transparent")
@@ -193,7 +199,9 @@ class JanelaFormularioDrone(ctk.CTkToplevel):
 
         ativar_modal_quando_visivel(self)
 
-
+    def acionar_edicao_rota(self):
+        self.tela_mapa.ativar_modo_drone(editando_nome=self.editando_nome)
+        self.destroy()
 
     def salvar(self):
         nome = self.entrada_nome.get()
