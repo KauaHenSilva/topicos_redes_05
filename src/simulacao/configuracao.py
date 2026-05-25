@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
-from .modelos import Drone, Ponto
+from .modelos import Drone, Ponto, Parede
 
 
 @dataclass(frozen=True)
@@ -15,6 +15,7 @@ class ConfiguracaoSimulacao:
     tamanho_ambiente: tuple[float, float]
     pontos: dict[str, Ponto]
     drones: dict[str, Drone]
+    paredes: dict[str, Parede]
     avisos: list[str]
 
 
@@ -30,12 +31,14 @@ def preparar_configuracao_simulacao(configuracao: dict[str, Any]) -> Configuraca
     tamanho_ambiente = _ler_tamanho_ambiente(configuracao)
     pontos = _ler_pontos(configuracao.get("Pontos", {}), tamanho_ambiente)
     drones = _ler_drones(configuracao.get("drones", {}), pontos, tamanho_ambiente)
+    paredes = _ler_paredes(configuracao.get("paredes", {}), tamanho_ambiente)
     avisos = _validar_numero_drones(configuracao.get("numero_drones"), len(drones))
 
     return ConfiguracaoSimulacao(
         tamanho_ambiente=tamanho_ambiente,
         pontos=pontos,
         drones=drones,
+        paredes=paredes,
         avisos=avisos,
     )
 
@@ -85,6 +88,40 @@ def _ler_pontos(
     return pontos
 
 
+def _ler_paredes(
+    paredes_config: dict[str, Any], tamanho_ambiente: tuple[float, float]
+) -> dict[str, Parede]:
+    if not paredes_config:
+        return {}
+
+    paredes: dict[str, Parede] = {}
+    for nome, dados in paredes_config.items():
+        if not isinstance(dados, dict):
+            raise ValueError(f"Parede {nome} deve ser um objeto com p1 e p2.")
+
+        dados_parede = cast(dict[str, Any], dados)
+        if "p1" not in dados_parede or "p2" not in dados_parede:
+            raise ValueError(f"Parede {nome} deve ter p1 e p2.")
+
+        p1_list = dados_parede["p1"]
+        p2_list = dados_parede["p2"]
+
+        if not isinstance(p1_list, list) or len(p1_list) != 2:
+            raise ValueError(f"Parede {nome} p1 deve ser lista [x, y].")
+        if not isinstance(p2_list, list) or len(p2_list) != 2:
+            raise ValueError(f"Parede {nome} p2 deve ser lista [x, y].")
+
+        p1 = (float(p1_list[0]), float(p1_list[1]))
+        p2 = (float(p2_list[0]), float(p2_list[1]))
+
+        _validar_posicao_no_ambiente(p1, tamanho_ambiente, f"Parede {nome} p1")
+        _validar_posicao_no_ambiente(p2, tamanho_ambiente, f"Parede {nome} p2")
+
+        paredes[nome] = Parede(nome=nome, p1=p1, p2=p2)
+
+    return paredes
+
+
 def _ler_drones(
     drones_config: dict[str, Any],
     pontos: dict[str, Ponto],
@@ -105,12 +142,30 @@ def _ler_drones(
             tamanho_ambiente,
             f"posicao_inicial de {nome}",
         )
-        destino, destino_nome, destino_raio = _resolver_posicao(
-            dados_drone["posicao_destino"],
-            pontos,
-            tamanho_ambiente,
-            f"posicao_destino de {nome}",
-        )
+        if "rota" in dados_drone:
+            rota_raw = dados_drone["rota"]
+            if not isinstance(rota_raw, list):
+                raise ValueError(f"A rota de {nome} deve ser uma lista.")
+        elif "posicao_destino" in dados_drone:
+            rota_raw = [dados_drone["posicao_destino"]]
+        else:
+            raise ValueError(f"O Drone {nome} deve ter 'rota' ou 'posicao_destino'.")
+
+        rota: list[tuple[float, float]] = []
+        rota_nomes: list[str] = []
+        rota_raios: list[float] = []
+
+        for wp in rota_raw:
+            pos, dest_nome, dest_raio = _resolver_posicao(
+                wp,
+                pontos,
+                tamanho_ambiente,
+                f"destino da rota de {nome}",
+            )
+            rota.append(pos)
+            rota_nomes.append(dest_nome)
+            rota_raios.append(dest_raio)
+
         raio = float(dados_drone.get("raio", 0))
         velocidade = float(dados_drone.get("velocidade", 1))
 
@@ -122,9 +177,9 @@ def _ler_drones(
         drones[nome] = Drone(
             nome=nome,
             posicao_atual=posicao_inicial,
-            destino=destino,
-            destino_nome=destino_nome,
-            destino_raio=destino_raio,
+            rota=rota,
+            rota_nomes=rota_nomes,
+            rota_raios=rota_raios,
             raio=raio,
             velocidade=velocidade,
         )

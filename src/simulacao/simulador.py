@@ -31,6 +31,7 @@ class SimuladorDrones:
         self.tamanho_ambiente = configuracao.tamanho_ambiente
         self.pontos = configuracao.pontos
         self.drones = configuracao.drones
+        self.paredes = configuracao.paredes
 
     def executar(self) -> tuple[dict[str, dict[str, Any]], dict[str, Any]]:
         """Executa a simulacao completa."""
@@ -108,6 +109,12 @@ class SimuladorDrones:
             if tempo_colisao is not None:
                 tempos.append(tempo_colisao)
 
+        for drone in drones_ativos:
+            for parede in self.paredes.values():
+                tempo_parede = self._tempo_ate_colisao_parede(drone, parede)
+                if tempo_parede is not None:
+                    tempos.append(tempo_parede)
+
         if not tempos:
             return None
         return max(0.0, min(tempos))
@@ -148,6 +155,25 @@ class SimuladorDrones:
             return None
         
         return max(0.0, tempo_entrada)
+
+    def _tempo_ate_colisao_parede(self, drone: Drone, parede: Any) -> float | None:
+        pos_atual = drone.posicao_atual
+        vel = self._vetor_velocidade(drone)
+        if abs(vel[0]) < EPSILON and abs(vel[1]) < EPSILON:
+            return None
+
+        from .modelos import intersecao_segmentos, distancia
+
+        intersecao = intersecao_segmentos(pos_atual, drone.destino, parede.p1, parede.p2)
+        if intersecao is None:
+            return None
+
+        dist = distancia(pos_atual, intersecao)
+        # Se cruza o segmento da parede na exata posicao atual (ou muito perto)
+        if dist <= EPSILON:
+            return 0.0
+
+        return dist / drone.velocidade
 
     def _vetor_velocidade(self, drone: Drone) -> tuple[float, float]:
         distancia_restante = drone.distancia_ate_destino()
@@ -202,6 +228,22 @@ class SimuladorDrones:
             drone.entregou = False
             drone.status = f"bateu({', '.join(sorted(outros))})"
             drone.tempo_missao = tempo_atual
+
+        from .modelos import distancia_ponto_segmento
+        for drone in candidatos:
+            if drone.colidiu:
+                continue
+            for parede in self.paredes.values():
+                dist = distancia_ponto_segmento(drone.posicao_atual, parede.p1, parede.p2)
+                # O drone pode "tocar" na parede considerando seu raio
+                if dist <= drone.raio + EPSILON:
+                    drone.colidiu = True
+                    drone.entregou = False
+                    drone.status = f"bateu_parede({parede.nome})"
+                    drone.tempo_missao = tempo_atual
+                    eventos.append(f"colisao: {drone.nome} com parede {parede.nome}")
+                    break
+
         return eventos
 
     def _marcar_entregas(self, *, tempo_atual: float) -> list[str]:
@@ -210,10 +252,18 @@ class SimuladorDrones:
             if not drone.ativo:
                 continue
             if drone.distancia_ate_destino() <= drone.destino_raio + EPSILON:
-                drone.entregou = True
-                drone.status = "entregou"
-                drone.tempo_missao = tempo_atual
-                eventos.append(f"entrega: {drone.nome} chegou em {drone.destino_nome}")
+                # Chegou no destino atual
+                if drone.indice_rota + 1 < len(drone.rota):
+                    # Tem próximo ponto na rota
+                    drone.indice_rota += 1
+                    drone.status = f"pegou proximo: {drone.destino_nome}"
+                    eventos.append(f"rota: {drone.nome} chegou em um waypoint e vai para {drone.destino_nome}")
+                else:
+                    # Acabou a rota
+                    drone.entregou = True
+                    drone.status = "entregou"
+                    drone.tempo_missao = tempo_atual
+                    eventos.append(f"entrega: {drone.nome} concluiu a rota")
         return eventos
 
     def _estado_interacao(self) -> dict[str, Any]:
