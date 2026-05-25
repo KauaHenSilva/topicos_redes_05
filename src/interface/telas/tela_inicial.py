@@ -76,7 +76,11 @@ class TelaInicial:
             return
 
         self.app.dados_simulacao["tamanho_ambiente"] = [largura, altura]
-        # Deixamos o numero_drones para ser preenchido dinamicamente depois!
+        self.app.dados_simulacao["Pontos"] = {}
+        self.app.dados_simulacao["drones"] = {}
+        if "paredes" in self.app.dados_simulacao:
+            self.app.dados_simulacao["paredes"] = {}
+        self.app.dados_simulacao["numero_drones"] = 0
         
         self.app.mostrar_tela_mapa()
 
