@@ -6,14 +6,14 @@
   ],
   "Pontos": {
     "Torre 1": {
-      "x": 63.93,
-      "y": 43.11,
+      "x": 26.94,
+      "y": 31.92,
       "r": 1.0,
       "modelo_base": "Torre"
     },
     "Torre 2": {
-      "x": 151.99,
-      "y": 48.87,
+      "x": 172.6,
+      "y": 31.92,
       "r": 1.0,
       "modelo_base": "Torre"
     }
@@ -22,8 +22,7 @@
     "Drone 1": {
       "posicao_inicial": "Torre 1",
       "rota": [
-        "Torre 2",
-        "Torre 1"
+        "Torre 2"
       ],
       "raio": 1.0,
       "velocidade": 1.0,
