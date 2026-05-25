@@ -1,82 +1,67 @@
-"""Entrada simples para executar o nucleo da simulacao."""
-
-from __future__ import annotations
-
-import argparse
 from pathlib import Path
-from datetime import datetime
+import sys
 
-from src.simulacao import (
-    executar_simulacao_de_arquivo,
-    salvar_resultado,
-)
+import customtkinter as ctk
+from src.interface.telas.tela_inicial import TelaInicial
+from src.interface.telas.tela_mapa import TelaMapa
 
+# Tema inicial
+ctk.set_appearance_mode("dark")  
+ctk.set_default_color_theme("blue")  
 
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Simulador de drones em ambiente 2D.")
-    parser.add_argument(
-        "--config",
-        default="utils/variaveis.json",
-        help="Caminho do JSON de configuracao da simulacao.",
-    )
-    parser.add_argument(
-        "--max-iteracoes",
-        type=int,
-        default=10000,
-        help="Limite de eventos antes de marcar drones como nao concluidos.",
-    )
-    parser.add_argument(
-        "--saida",
-        default="saida",
-        help="Diretorio que recebera os arquivos JSON da simulacao.",
-    )
-    return parser.parse_args()
+class InterfaceSimulador(ctk.CTk):
+    def __init__(self):
+        super().__init__()
 
+        # Configurações da Janela
+        self.title("Simulador de Drones - Configuração")
+        self.geometry("800x600")
+        self.minsize(600, 500) # Evita que a janela fique pequena demais e quebre o layout
+        
+        # Dicionário global de dados
+        self.dados_simulacao = {
+            "numero_drones": 0,
+            "tamanho_ambiente": [0, 0],
+            "Pontos": {},
+            "drones": {}
+        }
+        self.caminho_configuracao_atual = Path("config/config.json")
+        self.diretorio_saida = Path("saida")
 
-def imprimir_progresso(
-    interacoes: dict[str, dict[str, object]],
-    resultado_final: dict[str, object],
-) -> None:
-    tempos = resultado_final["tempos_interacoes"]
-    eventos = resultado_final["eventos_interacoes"]
+        # Switch para alternar Tema (Canto superior direito)
+        self.switch_tema = ctk.CTkSwitch(self, text="Modo Claro", command=self.alternar_tema)
+        self.switch_tema.pack(pady=15, padx=20, anchor="ne") # 'ne' = nordeste (topo direito)
 
-    for aviso in resultado_final["avisos_configuracao"]:
-        print(f"Aviso: {aviso}")
+        # Container principal onde as telas vão "trocar"
+        self.container = ctk.CTkFrame(self, fg_color="transparent")
+        self.container.pack(fill="both", expand=True)
 
-    print("Progresso da simulacao:")
-    for nome_interacao, drones in interacoes.items():
-        tempo = tempos.get(nome_interacao, 0.0)
-        eventos_interacao = eventos.get(nome_interacao)
-        eventos_texto = ", ".join(eventos_interacao) if eventos_interacao else ""
-        estados: list[str] = []
-        for nome_drone, dados in drones.items():
-            estados.append(f"{nome_drone}:{dados['status']}")
+        # Chama a primeira tela
+        self.mostrar_tela_inicial()
 
-        print(
-            f"- {nome_interacao} | t={tempo} | "
-            f"{eventos_texto} | " + ", ".join(estados)
-        )
+    def alternar_tema(self):
+        # Verifica qual modo está ativo e inverte
+        if ctk.get_appearance_mode() == "Dark":
+            ctk.set_appearance_mode("Light")
+            self.switch_tema.configure(text="Modo Escuro")
+        else:
+            ctk.set_appearance_mode("Dark")
+            self.switch_tema.configure(text="Modo Claro")
 
+    def limpar_container(self):
+        # Destrói tudo que está desenhado no container antes de carregar nova tela
+        for widget in self.container.winfo_children():
+            widget.destroy()
 
-def main() -> None:
-    args = parse_args()
-    execucao = executar_simulacao_de_arquivo(
-        args.config,
-        max_iteracoes=args.max_iteracoes,
-    )
-    # criar subpasta com timestamp para resultados para evitar sobrescrever execucoes anteriores
-    pasta_base = Path(args.saida)
-    pasta_timestamp = pasta_base / datetime.now().strftime("%Y%m%d_%H%M%S")
-    arquivos_saida = salvar_resultado(
-        pasta_timestamp,
-        execucao.interacoes,
-        execucao.resultado_final,
-    )
+    def mostrar_tela_inicial(self):
+        self.limpar_container()
+        TelaInicial(self.container, self) # Passa o container e o app global
 
-    imprimir_progresso(execucao.interacoes, execucao.resultado_final)
-    print(f"Arquivos salvos em: {pasta_timestamp}")
-    print(f"Total de arquivos gerados: {len(arquivos_saida)}")
-
+    def mostrar_tela_mapa(self):
+        self.limpar_container()
+        print("Indo para o Mapa com os dados temporários:", self.dados_simulacao)
+        TelaMapa(self.container, self)
 
 if __name__ == "__main__":
-    main()
+    app = InterfaceSimulador()
+    app.mainloop()

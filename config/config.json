@@ -1,0 +1,33 @@
+{
+  "numero_drones": 1,
+  "tamanho_ambiente": [
+    200.0,
+    200.0
+  ],
+  "Pontos": {
+    "Torre 1": {
+      "x": 63.93,
+      "y": 43.11,
+      "r": 1.0,
+      "modelo_base": "Torre"
+    },
+    "Torre 2": {
+      "x": 151.99,
+      "y": 48.87,
+      "r": 1.0,
+      "modelo_base": "Torre"
+    }
+  },
+  "drones": {
+    "Drone 1": {
+      "posicao_inicial": "Torre 1",
+      "rota": [
+        "Torre 2",
+        "Torre 1"
+      ],
+      "raio": 1.0,
+      "velocidade": 1.0,
+      "modelo_base": "Drone"
+    }
+  }
+}

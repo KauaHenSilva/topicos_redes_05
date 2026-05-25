@@ -1,0 +1,94 @@
+{
+  "numero_drones": 6,
+  "tamanho_ambiente": [
+    200.0,
+    200.0
+  ],
+  "Pontos": {
+    "Centro": {
+      "x": 100,
+      "y": 100,
+      "r": 0.0
+    },
+    "P1": {
+      "x": 100,
+      "y": 10,
+      "r": 1.0
+    },
+    "P2": {
+      "x": 190,
+      "y": 55,
+      "r": 1.0
+    },
+    "P3": {
+      "x": 190,
+      "y": 145,
+      "r": 1.0
+    },
+    "P4": {
+      "x": 100,
+      "y": 190,
+      "r": 1.0
+    },
+    "P5": {
+      "x": 10,
+      "y": 145,
+      "r": 1.0
+    },
+    "P6": {
+      "x": 10,
+      "y": 55,
+      "r": 1.0
+    }
+  },
+  "drones": {
+    "Drone A": {
+      "posicao_inicial": "P1",
+      "rota": [
+        "Centro"
+      ],
+      "raio": 1.5,
+      "velocidade": 10.0
+    },
+    "Drone B": {
+      "posicao_inicial": "P2",
+      "rota": [
+        "Centro"
+      ],
+      "raio": 1.5,
+      "velocidade": 12.0
+    },
+    "Drone C": {
+      "posicao_inicial": "P3",
+      "rota": [
+        "Centro"
+      ],
+      "raio": 1.5,
+      "velocidade": 14.0
+    },
+    "Drone D": {
+      "posicao_inicial": "P4",
+      "rota": [
+        "Centro"
+      ],
+      "raio": 1.5,
+      "velocidade": 10.0
+    },
+    "Drone E": {
+      "posicao_inicial": "P5",
+      "rota": [
+        "Centro"
+      ],
+      "raio": 1.5,
+      "velocidade": 12.0
+    },
+    "Drone F": {
+      "posicao_inicial": "P6",
+      "rota": [
+        "Centro"
+      ],
+      "raio": 1.5,
+      "velocidade": 14.0
+    }
+  }
+}

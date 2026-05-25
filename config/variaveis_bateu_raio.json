@@ -1,0 +1,65 @@
+{
+  "numero_drones": 4,
+  "tamanho_ambiente": [
+    250.0,
+    250.0
+  ],
+  "Pontos": {
+    "p1": {
+      "x": 10,
+      "y": 10,
+      "r": 1
+    },
+    "p2": {
+      "x": 100,
+      "y": 10,
+      "r": 1
+    },
+    "Base1": {
+      "x": 235.42,
+      "y": 15.42,
+      "r": 1.0
+    },
+    "Base2": {
+      "x": 23.58,
+      "y": 227.42,
+      "r": 1.0
+    },
+    "Base3": {
+      "x": 205.66,
+      "y": 17.86,
+      "r": 1.0
+    },
+    "Base4": {
+      "x": 224.51,
+      "y": 55.99,
+      "r": 1.0
+    }
+  },
+  "drones": {
+    "drone1": {
+      "posicao_inicial": "p1",
+      "posicao_destino": "p2",
+      "raio": 2,
+      "velocidade": 1
+    },
+    "drone2": {
+      "posicao_inicial": "p2",
+      "posicao_destino": "p1",
+      "raio": 20.0,
+      "velocidade": 1.0
+    },
+    "D2": {
+      "posicao_inicial": "Base3",
+      "posicao_destino": "Base4",
+      "raio": 20.0,
+      "velocidade": 0.5
+    },
+    "D3": {
+      "posicao_inicial": "Base1",
+      "posicao_destino": "Base2",
+      "raio": 2.0,
+      "velocidade": 1.0
+    }
+  }
+}

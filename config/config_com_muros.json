@@ -1,0 +1,47 @@
+{
+  "numero_drones": 1,
+  "tamanho_ambiente": [
+    200.0,
+    200.0
+  ],
+  "Pontos": {
+    "B 1": {
+      "x": 43.65,
+      "y": 41.6,
+      "r": 1.0,
+      "modelo_base": "B"
+    },
+    "B 2": {
+      "x": 151.35,
+      "y": 45.11,
+      "r": 1.0,
+      "modelo_base": "B"
+    }
+  },
+  "paredes": {
+    "Muro Teste": {
+      "p1": [
+        100.0,
+        20.0
+      ],
+      "p2": [
+        100.0,
+        80.0
+      ]
+    }
+  },
+  "drones": {
+    "D 1": {
+      "posicao_inicial": "B 1",
+      "rota": [
+        "B 2",
+        "B 1",
+        "B 2",
+        "B 1"
+      ],
+      "raio": 1.0,
+      "velocidade": 1.0,
+      "modelo_base": "D"
+    }
+  }
+}

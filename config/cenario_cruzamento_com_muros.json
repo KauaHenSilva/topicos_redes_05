@@ -1,0 +1,75 @@
+{
+  "numero_drones": 4,
+  "tamanho_ambiente": [
+    400.0,
+    400.0
+  ],
+  "Pontos": {
+    "Norte": {
+      "x": 200,
+      "y": 50,
+      "r": 2.0
+    },
+    "Sul": {
+      "x": 200,
+      "y": 350,
+      "r": 2.0
+    },
+    "Leste": {
+      "x": 350,
+      "y": 200,
+      "r": 2.0
+    },
+    "Oeste": {
+      "x": 50,
+      "y": 200,
+      "r": 2.0
+    }
+  },
+  "paredes": {
+    "Muro Diagonal": {
+      "p1": [
+        150.0,
+        150.0
+      ],
+      "p2": [
+        250.0,
+        250.0
+      ]
+    }
+  },
+  "drones": {
+    "Drone N-S": {
+      "posicao_inicial": "Norte",
+      "rota": [
+        "Sul"
+      ],
+      "raio": 3.0,
+      "velocidade": 20.0
+    },
+    "Drone S-N": {
+      "posicao_inicial": "Sul",
+      "rota": [
+        "Norte"
+      ],
+      "raio": 3.0,
+      "velocidade": 25.0
+    },
+    "Drone L-O": {
+      "posicao_inicial": "Leste",
+      "rota": [
+        "Oeste"
+      ],
+      "raio": 3.0,
+      "velocidade": 22.0
+    },
+    "Drone O-L": {
+      "posicao_inicial": "Oeste",
+      "rota": [
+        "Leste"
+      ],
+      "raio": 3.0,
+      "velocidade": 22.0
+    }
+  }
+}

@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 
-CAMINHO_CONFIG_PADRAO = Path("src/interface/config.json")
+CAMINHO_CONFIG_PADRAO = Path("config/config.json")
 
 
 def preparar_dados_interface(dados: dict[str, Any]) -> dict[str, Any]:
