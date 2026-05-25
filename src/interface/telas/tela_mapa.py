@@ -195,6 +195,9 @@ class TelaMapa:
         self.btn_simular = ctk.CTkButton(self.frame_timeline, text="Simular", width=110, fg_color="#7d3c98", hover_color="#5b2c6f", command=self.alternar_animacao)
         self.btn_simular.pack(side="left", padx=(10, 8), pady=10)
 
+        self.btn_graficos = ctk.CTkButton(self.frame_timeline, text="Ver Gráficos", width=100, fg_color="#2980b9", hover_color="#1f6aa5", command=self.mostrar_graficos, state="disabled")
+        self.btn_graficos.pack(side="left", padx=5)
+
         self.timeline_slider = ctk.CTkSlider(self.frame_timeline, from_=0, to=1, command=self.arrastar_timeline)
         self.timeline_slider.set(0)
         self.timeline_slider.pack(side="left", fill="x", expand=True, padx=8)
@@ -503,21 +506,19 @@ class TelaMapa:
 
     # ================== LÓGICA DE CLIQUE NO MAPA ==================
     def ativar_modo_base(self):
-        self.limpar_selecao_visual()
+        self.ativar_modo_visualizacao()
         self.modo_atual = "base"
-        self.base_origem_temp = None
         self.lbl_status.configure(text="Modo: Clique no mapa para criar uma base", text_color="green")
 
-    def ativar_modo_drone(self):
-        self.limpar_selecao_visual()
+    def ativar_modo_drone(self, editando_nome=None):
+        self.ativar_modo_visualizacao()
         self.modo_atual = "drone"
-        self.base_origem_temp = None
+        self.drone_editando_rota = editando_nome
         self.lbl_status.configure(text="Modo: Selecione a base de Origem", text_color="#1f6aa5")
 
     def ativar_modo_parede(self):
-        self.limpar_selecao_visual()
+        self.ativar_modo_visualizacao()
         self.modo_atual = "parede"
-        self.parede_temp_p1 = None
         self.lbl_status.configure(text="Modo: Clique no mapa para o Ponto 1 da Parede", text_color="#e74c3c")
         self.btn_cancelar_rota.pack(side="right", padx=5)
 
@@ -649,6 +650,7 @@ class TelaMapa:
                 if "paredes" not in self.app.dados_simulacao:
                     self.app.dados_simulacao["paredes"] = {}
                 self.app.dados_simulacao["paredes"][nome_digitado] = {"p1": [p1[0], p1[1]], "p2": [p2[0], p2[1]]}
+                self.limpar_simulacao_exibida()
             
             try:
                 self.ativar_modo_visualizacao()
@@ -664,9 +666,11 @@ class TelaMapa:
         origem = self.rota_temp_drone[0]
         destinos = self.rota_temp_drone[1:]
         
+        editando_nome = getattr(self, 'drone_editando_rota', None)
+        
         modelo_selecionado = self.var_modelo_ativo.get()
-        if modelo_selecionado == "Personalizado":
-            self.abrir_formulario_drone(origem, destinos)
+        if modelo_selecionado == "Personalizado" or editando_nome:
+            self.abrir_formulario_drone(origem, destinos, editando_nome)
         else:
             self.criar_drone_por_modelo(origem, destinos, modelo_selecionado)
             self.ativar_modo_visualizacao()
@@ -676,6 +680,7 @@ class TelaMapa:
         self.base_origem_temp = None
         self.rota_temp_drone = []
         self.parede_temp_p1 = None
+        self.drone_editando_rota = None
         if hasattr(self, 'id_ponto_parede') and self.id_ponto_parede:
             try:
                 if self.canvas.winfo_exists():
@@ -787,6 +792,16 @@ class TelaMapa:
 
         self.iniciar_animacao()
 
+    def mostrar_graficos(self):
+        if getattr(self, 'resultado_final_simulacao', None):
+            try:
+                from src.interface.graficos import gerar_e_exibir_graficos
+                gerar_e_exibir_graficos(self.app.dados_simulacao, self.resultado_final_simulacao)
+            except Exception as e:
+                import traceback
+                print("Erro ao exibir gráficos:", traceback.format_exc())
+
+
     def executar_simulacao(self):
         self.pausar_animacao()
         try:
@@ -817,7 +832,7 @@ class TelaMapa:
 
         self.mostrar_tempo_simulacao(0.0)
         self.atualizar_resumo_resultado(caminho_configuracao)
-        gerar_e_exibir_graficos(self.app.dados_simulacao, self.resultado_final_simulacao)
+        self.btn_graficos.configure(state="normal")
         return True
 
     def chave_ordenacao_interacao(self, nome_interacao):
