@@ -168,8 +168,7 @@ class SimuladorDrones:
         if intersecao is None:
             return None
 
-        dist = distancia(pos_atual, intersecao)
-        # Se cruza o segmento da parede na exata posicao atual (ou muito perto)
+        dist = max(0.0, distancia(pos_atual, intersecao) - drone.raio)
         if dist <= EPSILON:
             return 0.0
 
