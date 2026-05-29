@@ -90,12 +90,13 @@
       "rota": [
         "Recarga 1",
         "Entrega 1",
+        "Recarga 1",
         "Estacionamento 1"
       ],
       "raio": 2.0,
       "velocidade": 22.0,
       "modelo_base": "Blast",
-      "base_entrega": "Estacionamento 1"
+      "base_entrega": "Entrega 1"
     },
     "Blast 2": {
       "posicao_inicial": "Estacionamento 2",
@@ -133,6 +134,18 @@
       "velocidade": 22.0,
       "modelo_base": "Blast",
       "base_entrega": "Estacionamento 3"
+    }
+  },
+  "paredes": {
+    "Muro da china": {
+      "p1": [
+        97.9,
+        14.1
+      ],
+      "p2": [
+        13.99,
+        50.75
+      ]
     }
   }
 }

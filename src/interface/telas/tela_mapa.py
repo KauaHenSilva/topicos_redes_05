@@ -1366,13 +1366,14 @@ class TelaMapa:
         novo_nome = f"{nome_modelo} {modelo['contador']}"
         
         # MUDANÇA: Previne conflito caso o nome já exista em Drones OU nas Bases!
-        while (novo_nome in self.app.dados_simulacao["drones"]) or (novo_nome in self.app.dados_simulacao["Pontos"]):
+        while (novo_nome in self.app.dados_simulacao.get("drones", {})) or (novo_nome in self.app.dados_simulacao.get("Pontos", {})):
             modelo["contador"] += 1
             novo_nome = f"{nome_modelo} {modelo['contador']}"
+        base_entrega_padrao = destino[-1] if isinstance(destino, list) else destino
 
-        self.salvar_drone(novo_nome, origem, destino, modelo["velocidade"], modelo["raio"], editando_nome=None, modelo_base=nome_modelo)
+        self.salvar_drone(novo_nome, origem, destino, modelo["velocidade"], modelo["raio"], editando_nome=None, modelo_base=nome_modelo, base_entrega=base_entrega_padrao)
 
-    def salvar_drone(self, nome, origem, destino, velocidade, raio, editando_nome, modelo_base=None):
+    def salvar_drone(self, nome, origem, destino, velocidade, raio, editando_nome, modelo_base=None, base_entrega=None):
         self.limpar_simulacao_exibida()
         
         # MUDANÇA: Se estivermos apenas editando a rota/nome de um drone existente, não podemos perder a etiqueta dele!
@@ -1384,13 +1385,15 @@ class TelaMapa:
             "rota": destino if isinstance(destino, list) else [d.strip() for d in str(destino).split(",") if d.strip()],
             "raio": raio,
             "velocidade": velocidade,
-            "modelo_base": modelo_base  # <-- Etiqueta gravada!
+            "modelo_base": modelo_base,
+            "base_entrega": base_entrega  # <-- Novo campo gravado no JSON!
         }
         self.app.dados_simulacao["numero_drones"] = len(self.app.dados_simulacao["drones"])
 
-        if not editando_nome:
-            self.redesenhar_mapa()
-
+        # MUDANÇA (Corrige o visual estático da rota): O mapa agora é redesenhado COMPLETAMENTE,
+        # tanto na criação quanto na edição, apagando e recriando as linhas perfeitamente ligadas nas escalas!
+        self.redesenhar_mapa()
+        
         self.atualizar_lista_painel()
         self.ativar_modo_visualizacao()
         

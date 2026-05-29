@@ -1,14 +1,15 @@
+import math
 import customtkinter as ctk
 from tkinter import messagebox, TclError
 
 
 def ativar_modal_quando_visivel(janela):
-    def ativar():
+    def activar():
         if not janela.winfo_exists():
             return
 
         if not janela.winfo_viewable():
-            janela.after(50, ativar)
+            janela.after(50, activar)
             return
 
         try:
@@ -16,9 +17,9 @@ def ativar_modal_quando_visivel(janela):
             janela.focus_force()
             janela.grab_set()
         except TclError:
-            janela.after(50, ativar)
+            janela.after(50, activar)
 
-    janela.after_idle(ativar)
+    janela.after_idle(activar)
 
 
 class JanelaFormularioBase(ctk.CTkToplevel):
@@ -85,21 +86,17 @@ class JanelaFormularioBase(ctk.CTkToplevel):
             self.attributes("-topmost", True)
             return
 
-        # ================= LÓGICA DE BLOQUEIO ABSOLUTO =================
-        # 1. Bloqueia se o nome já for usado por uma Base (e não for a que estamos editando)
         if nome in self.tela_mapa.app.dados_simulacao.get("Pontos", {}):
             if self.editando_nome != nome:
                 messagebox.showerror("Erro", f"Já existe uma Base chamada '{nome}'!")
                 self.attributes("-topmost", True)
                 return
 
-        # 2. Bloqueia se o nome já for usado por um Drone
         if nome in self.tela_mapa.app.dados_simulacao.get("drones", {}):
             if self.editando_nome != nome:
                 messagebox.showerror("Erro", f"Já existe um Drone chamado '{nome}'!")
                 self.attributes("-topmost", True)
                 return
-        # ===============================================================
 
         try:
             val_x = float(self.entrada_x.get())
@@ -129,15 +126,17 @@ class JanelaFormularioBase(ctk.CTkToplevel):
 
 
 class JanelaFormularioDrone(ctk.CTkToplevel):
-    def __init__(self, tela_mapa, origen, destino, editando_nome=None):
+    def __init__(self, tela_mapa, origem, destino, editando_nome=None):
         super().__init__()
         self.tela_mapa = tela_mapa
-        self.origem = origen
-        self.destino = destino
+        self.origem = origem
+        
+        # Previne erro caso destino chegue como None a partir da lista
+        self.destinos = destino if isinstance(destino, list) else ([destino] if destino else [])
         self.editando_nome = editando_nome
 
         self.title("Configuração do Drone")
-        self.geometry("350x420")
+        self.geometry("400x700") 
         self.attributes("-topmost", True)
 
         lbl_titulo = ctk.CTkLabel(self, text="Dados do Drone", font=("Arial", 16, "bold"))
@@ -159,36 +158,77 @@ class JanelaFormularioDrone(ctk.CTkToplevel):
         lbl_raio = ctk.CTkLabel(self, text="Raio de Colisão (km):", text_color="gray", anchor="w")
         lbl_raio.pack(padx=20, fill="x")
         self.entrada_raio = ctk.CTkEntry(self, placeholder_text="ex: 2.0")
-        self.entrada_raio.pack(pady=(0, 15), padx=20, fill="x")
+        self.entrada_raio.pack(pady=(0, 10), padx=20, fill="x")
 
-        # Se estiver editando, recuperamos as informações
+        # Variável para rastrear a base de entrega previamente salva
+        base_entrega_salva = self.destinos[-1] if self.destinos else None
+
         if editando_nome:
             dados_atuais = self.tela_mapa.app.dados_simulacao["drones"][editando_nome]
-            if not self.origem:
+            
+            # --- CORREÇÃO CRUCIAL AQUI ---
+            # Se origem for None (abriu pela lista), carregamos a rota velha do JSON.
+            # Se origem NÃO for None (veio do botão de Confirmar Rota), mantemos a nova!
+            if self.origem is None:
                 self.origem = dados_atuais["posicao_inicial"]
-            if not self.destino:
-                rota_nomes = dados_atuais.get("rota", [dados_atuais.get("posicao_destino")])
-                self.destino = ", ".join([r for r in rota_nomes if r])
+                self.destinos = dados_atuais.get("rota", [dados_atuais.get("posicao_destino")])
+            
+            base_entrega_salva = dados_atuais.get("base_entrega", self.destinos[-1] if self.destinos else None)
+            
+            # Se a base salva não faz mais parte da nova rota redesenhada, reseta para a última
+            if base_entrega_salva not in self.destinos and self.destinos:
+                base_entrega_salva = self.destinos[-1]
             
             self.entrada_nome.insert(0, editando_nome)
             self.entrada_nome.configure(state="disabled")
             self.entrada_vel.insert(0, str(dados_atuais["velocidade"]))
             self.entrada_raio.insert(0, str(dados_atuais["raio"]))
 
-        # --- ROTA ---
-        self.lista_destinos = self.destino if isinstance(self.destino, list) else [d.strip() for d in str(self.destino).split(",") if d.strip()]
+        # --- BASE DE ENTREGA (Opção de Seleção) ---
+        lbl_entrega = ctk.CTkLabel(self, text="Base de Entrega (Destino Principal):", text_color="gray", anchor="w")
+        lbl_entrega.pack(padx=20, fill="x")
         
-        texto_rota = f"Rota: {self.origem} ➔ {' ➔ '.join(self.lista_destinos)}"
-        self.lbl_rota_atual = ctk.CTkLabel(self, text=texto_rota, text_color="#2ecc71", font=("Arial", 12, "bold"), wraplength=300)
-        self.lbl_rota_atual.pack(pady=(15, 10), padx=20)
+        self.var_base_entrega = ctk.StringVar(value=base_entrega_salva)
+        self.combo_entrega = ctk.CTkOptionMenu(
+            self,
+            variable=self.var_base_entrega,
+            values=self.destinos,
+            fg_color="#34495e", button_color="#2c3e50"
+        )
+        self.combo_entrega.pack(padx=20, fill="x", pady=(0, 10))
 
-        if editando_nome:
-            btn_editar_rota = ctk.CTkButton(self, text="Redesenhar Rota no Mapa", fg_color="#f39c12", hover_color="#d68910", command=self.acionar_edicao_rota)
-            btn_editar_rota.pack(pady=(0, 10), padx=20)
+        # --- CÁLCULO E EXIBIÇÃO DAS DISTÂNCIAS ---
+        caminho_completo = [self.origem] + self.destinos
+        distancia_total = 0.0
+        textos_trechos = []
+        
+        for i in range(len(caminho_completo) - 1):
+            p1_nome = caminho_completo[i]
+            p2_nome = caminho_completo[i+1]
+            
+            p1 = self.tela_mapa.app.dados_simulacao["Pontos"][p1_nome]
+            p2 = self.tela_mapa.app.dados_simulacao["Pontos"][p2_nome]
+            
+            dist = math.hypot(p2["x"] - p1["x"], p2["y"] - p1["y"])
+            distancia_total += dist
+            textos_trechos.append(f"• {p1_nome} ➔ {p2_nome}: {dist:.2f} km")
 
-        # --- BOTÕES ---
+        lbl_rota_titulo = ctk.CTkLabel(self, text="Distâncias por Trecho:", text_color="#2ecc71", font=("Arial", 12, "bold"))
+        lbl_rota_titulo.pack(pady=(5, 0))
+
+        frame_rotas = ctk.CTkScrollableFrame(self, height=80, fg_color="#2b2b2b")
+        frame_rotas.pack(padx=20, fill="x", pady=5)
+
+        for trecho in textos_trechos:
+            lbl_t = ctk.CTkLabel(frame_rotas, text=trecho, font=("Arial", 11))
+            lbl_t.pack(anchor="w")
+
+        lbl_dist_total = ctk.CTkLabel(self, text=f"Distância Total: {distancia_total:.2f} km", text_color="#3498db", font=("Arial", 14, "bold"))
+        lbl_dist_total.pack(pady=(5, 10))
+
+        # --- CONFIGURAÇÃO E EMPILHAMENTO DOS BOTÕES INFERIORES ---
         frame_botoes = ctk.CTkFrame(self, fg_color="transparent")
-        frame_botoes.pack(pady=5)
+        frame_botoes.pack(side="bottom", pady=(0, 20)) 
 
         btn_salvar = ctk.CTkButton(frame_botoes, text="Salvar", command=self.salvar, width=100)
         btn_salvar.pack(side="left", padx=10)
@@ -197,23 +237,32 @@ class JanelaFormularioDrone(ctk.CTkToplevel):
             btn_deletar = ctk.CTkButton(frame_botoes, text="Deletar", fg_color="#c0392b", hover_color="#922b21", command=self.deletar, width=100)
             btn_deletar.pack(side="right", padx=10)
 
-        ativar_modal_quando_visivel(self)
+        if editando_nome:
+            btn_redesenhar = ctk.CTkButton(
+                self, text="Redesenhar Rota no Mapa", 
+                fg_color="#f39c12", hover_color="#d35400", text_color="white",
+                command=self.redesenhar_rota
+            )
+            btn_redesenhar.pack(side="bottom", pady=(0, 15))
 
-    def acionar_edicao_rota(self):
+        try:
+            ativar_modal_quando_visivel(self)
+        except NameError:
+            self.after(200, self.grab_set)
+
+    def redesenhar_rota(self):
         self.tela_mapa.ativar_modo_drone(editando_nome=self.editando_nome)
         self.destroy()
 
     def salvar(self):
         nome = self.entrada_nome.get()
-        
         if not nome:
             messagebox.showerror("Erro", "O identificador não pode ficar vazio.")
             self.attributes("-topmost", True)
             return
 
-        # --- MUDANÇA: Validação de nome global (Drones e Bases) ---
-        nome_em_uso_drones = (not self.editando_nome and nome in self.tela_mapa.app.dados_simulacao["drones"]) or \
-                             (self.editando_nome and nome != self.editando_nome and nome in self.tela_mapa.app.dados_simulacao["drones"])
+        nome_em_uso_drones = (not self.editando_nome and nome in self.tela_mapa.app.dados_simulacao.get("drones", {})) or \
+                             (self.editando_nome and nome != self.editando_nome and nome in self.tela_mapa.app.dados_simulacao.get("drones", {}))
                              
         nome_em_uso_bases = nome in self.tela_mapa.app.dados_simulacao.get("Pontos", {})
 
@@ -221,7 +270,6 @@ class JanelaFormularioDrone(ctk.CTkToplevel):
             messagebox.showerror("Erro", "Já existe um elemento (Base ou Drone) com esse nome!")
             self.attributes("-topmost", True)
             return
-        # ----------------------------------------------------------
 
         try:
             vel = float(self.entrada_vel.get())
@@ -230,27 +278,16 @@ class JanelaFormularioDrone(ctk.CTkToplevel):
             messagebox.showerror("Erro", "Velocidade e Raio devem ser numéricos!")
             self.attributes("-topmost", True)
             return
-
-        if not self.lista_destinos:
-            messagebox.showerror("Erro", "A rota do drone precisa ter pelo menos um destino!")
-            self.attributes("-topmost", True)
-            return
             
-        bases = self.tela_mapa.app.dados_simulacao["Pontos"]
-        
-        for dest in self.lista_destinos:
-            if dest not in bases:
-                messagebox.showerror("Erro", f"A base de destino '{dest}' não existe mais no mapa!")
-                self.attributes("-topmost", True)
-                return
-
-        self.tela_mapa.salvar_drone(nome, self.origem, self.lista_destinos, vel, raio, self.editando_nome)
+        base_entrega = self.var_base_entrega.get()
+        self.tela_mapa.salvar_drone(nome, self.origem, self.destinos, vel, raio, self.editando_nome, base_entrega=base_entrega)
         self.destroy()
 
     def deletar(self):
         if messagebox.askyesno("Confirmar", f"Tem certeza que deseja apagar o '{self.editando_nome}'?"):
             self.tela_mapa.deletar_drone(self.editando_nome)
             self.destroy()
+
 
 class JanelaFormularioModeloDrone(ctk.CTkToplevel):
     def __init__(self, tela_mapa, editando_modelo=None):
@@ -281,7 +318,6 @@ class JanelaFormularioModeloDrone(ctk.CTkToplevel):
         self.entrada_raio = ctk.CTkEntry(self, placeholder_text="ex: 2.0")
         self.entrada_raio.pack(pady=(0, 15), padx=20, fill="x")
 
-        # Se estiver editando, preenche os campos
         if self.editando_modelo:
             dados = self.tela_mapa.modelos_drones[self.editando_modelo]
             self.entrada_nome.insert(0, self.editando_modelo)
@@ -347,7 +383,6 @@ class JanelaFormularioModeloBase(ctk.CTkToplevel):
         self.entrada_raio = ctk.CTkEntry(self, placeholder_text="ex: 5.0")
         self.entrada_raio.pack(pady=(0, 15), padx=20, fill="x")
 
-        # Se estiver editando, preenche os campos
         if self.editando_modelo:
             dados = self.tela_mapa.modelos_bases[self.editando_modelo]
             self.entrada_nome.insert(0, self.editando_modelo)
