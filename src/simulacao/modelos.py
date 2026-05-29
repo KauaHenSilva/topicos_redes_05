@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from math import hypot
 
 
@@ -34,6 +34,11 @@ class Drone:
     nao_concluiu: bool = False
     tempo_missao: float = 0.0
     distancia_percorrida: float = 0.0
+    base_entrega: str | None = None
+    pacote_entregue: bool = False
+    tempo_entrega: float = 0.0
+    # NOVA MÉTRICA DE IMUNIDADE: Guarda quais zonas ele já passou no teste de sorte
+    zonas_risco_superadas: set[str] = field(default_factory=set)
 
     @property
     def ativo(self) -> bool:
@@ -83,6 +88,8 @@ class Parede:
     nome: str
     p1: tuple[float, float]
     p2: tuple[float, float]
+    probabilidade: float = 1.0  # 1.0 = 100% de chance de queda (parede sólida)
+    modelo_base: str | None = None
 
 
 def orientacao(p: tuple[float, float], q: tuple[float, float], r: tuple[float, float]) -> int:

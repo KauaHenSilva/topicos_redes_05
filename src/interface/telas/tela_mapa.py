@@ -21,6 +21,8 @@ from src.interface.telas.formularios import (
     JanelaFormularioDrone,
     JanelaFormularioModeloDrone,
     JanelaFormularioModeloBase,
+    JanelaFormularioParede,
+    JanelaFormularioModeloParede,
 )
 from src.interface.utils import conversores_escala
 
@@ -37,6 +39,7 @@ class TelaMapa:
         self.item_selecionado = {"tipo": None, "nome": None}
         self.modelos_drones = {}
         self.modelos_bases = {}
+        self.modelos_paredes = {}
         self.imagens_em_memoria = {}
         self.interacoes_simulacao: dict[str, dict[str, dict[str, Any]]] = {}
         self.resultado_final_simulacao: dict[str, Any] | None = None
@@ -52,6 +55,9 @@ class TelaMapa:
         self.atualizando_timeline = False
         
         self.construir_tela()
+        
+        self.reconstruir_modelos_da_configuracao()
+        self.parent.after_idle(self.redesenhar_mapa)
 
     def construir_tela(self):
         # ================= PAINEL LATERAL (MENU) =================
@@ -129,6 +135,26 @@ class TelaMapa:
         )
         self.btn_editar_modelo.pack(fill="x", pady=(0, 4))
 
+        lbl_modelos_parede = ctk.CTkLabel(frame_criacao, text="Modelo de Parede Ativo:", font=ctk.CTkFont(size=12, weight="bold"), text_color="gray", anchor="w")
+        lbl_modelos_parede.pack(fill="x", pady=(10, 0))
+
+        self.var_modelo_parede_ativo = ctk.StringVar(value="Personalizado")
+        self.combo_modelos_parede = ctk.CTkOptionMenu(
+            frame_criacao, variable=self.var_modelo_parede_ativo, values=["Personalizado"],
+            fg_color="#34495e", button_color="#2c3e50", button_hover_color="#1a252f"
+        )
+        self.combo_modelos_parede.pack(fill="x", pady=4)
+
+        self.btn_novo_modelo_parede = ctk.CTkButton(
+            frame_criacao, text="Novo Modelo Parede", fg_color="transparent", border_width=1, border_color="#e74c3c", text_color="white", hover_color="#c0392b", command=self.abrir_formulario_novo_modelo_parede
+        )
+        self.btn_novo_modelo_parede.pack(fill="x", pady=(0, 4))
+
+        self.btn_editar_modelo_parede = ctk.CTkButton(
+            frame_criacao, text="Editar Modelo Parede", fg_color="transparent", border_width=1, border_color="#e67e22", text_color="white", hover_color="#d35400", command=self.abrir_formulario_editar_modelo_parede
+        )
+        self.btn_editar_modelo_parede.pack(fill="x", pady=(0, 15))
+
         # --- Seção 2: Lista de Elementos ---
         lbl_lista = ctk.CTkLabel(self.painel_lateral, text="Elementos Criados", font=ctk.CTkFont(size=14, weight="bold"), text_color="gray")
         lbl_lista.pack(pady=(15, 5))
@@ -192,8 +218,13 @@ class TelaMapa:
         self.frame_timeline = ctk.CTkFrame(self.frame_mapa)
         self.frame_timeline.pack(fill="x", padx=10, pady=(0, 10))
 
-        self.btn_simular = ctk.CTkButton(self.frame_timeline, text="Simular", width=110, fg_color="#7d3c98", hover_color="#5b2c6f", command=self.alternar_animacao)
-        self.btn_simular.pack(side="left", padx=(10, 8), pady=10)
+        # NOVO: Botão Recalcular
+        self.btn_recalcular = ctk.CTkButton(self.frame_timeline, text="Recalcular Física", width=120, fg_color="#e67e22", hover_color="#d35400", command=self.forcar_nova_simulacao)
+        self.btn_recalcular.pack(side="left", padx=(10, 5), pady=10)
+
+        # ANTIGO: Botão Play/Pause
+        self.btn_simular = ctk.CTkButton(self.frame_timeline, text="Play / Simular", width=110, fg_color="#7d3c98", hover_color="#5b2c6f", command=self.alternar_animacao)
+        self.btn_simular.pack(side="left", padx=(5, 8), pady=10)
 
         self.btn_graficos = ctk.CTkButton(self.frame_timeline, text="Ver Gráficos", width=100, fg_color="#2980b9", hover_color="#1f6aa5", command=self.mostrar_graficos, state="disabled")
         self.btn_graficos.pack(side="left", padx=5)
@@ -447,6 +478,9 @@ class TelaMapa:
                 self.abrir_formulario_base(km_x=0, km_y=0, editando_nome=nome)
             elif tipo == "drone":
                 self.abrir_formulario_drone(origem=None, destino=None, editando_nome=nome)
+            elif tipo == "parede":
+                dados = self.app.dados_simulacao["paredes"][nome]
+                JanelaFormularioParede(self, tuple(dados["p1"]), tuple(dados["p2"]), editando_nome=nome)
         else:
             self.item_selecionado = {"tipo": tipo, "nome": nome}
             self.destacar_no_mapa(tipo, nome)
@@ -637,27 +671,14 @@ class TelaMapa:
     def logica_clique_parede(self, km_x, km_y, px_x, px_y):
         if getattr(self, 'parede_temp_p1', None) is None:
             self.parede_temp_p1 = (km_x, km_y)
-            self.lbl_status.configure(text="Modo: Clique no mapa para o Ponto 2 da Parede", text_color="#e74c3c")
+            self.lbl_status.configure(text="Modo: Clique no mapa para o Ponto 2 da Parede/Zona", text_color="#e74c3c")
             self.id_ponto_parede = self.canvas.create_oval(px_x - 4, px_y - 4, px_x + 4, px_y + 4, fill="#e74c3c", outline="white")
         else:
             p2 = (km_x, km_y)
             p1 = self.parede_temp_p1
             
-            dialog = ctk.CTkInputDialog(text="Digite o nome da Parede (ex: Muro 1):", title="Nova Parede")
-            nome_digitado = dialog.get_input()
-            
-            if nome_digitado:
-                if "paredes" not in self.app.dados_simulacao:
-                    self.app.dados_simulacao["paredes"] = {}
-                self.app.dados_simulacao["paredes"][nome_digitado] = {"p1": [p1[0], p1[1]], "p2": [p2[0], p2[1]]}
-                self.limpar_simulacao_exibida()
-            
-            try:
-                self.ativar_modo_visualizacao()
-                self.redesenhar_mapa()
-                self.atualizar_lista_painel()
-            except Exception as e:
-                print(f"Erro ao atualizar visualização: {e}")
+            # Abre o formulário bonito que acabamos de criar, passando os pontos 1 e 2
+            JanelaFormularioParede(self, p1, p2)
 
     def confirmar_rota_drone(self):
         if not getattr(self, 'rota_temp_drone', None) or len(self.rota_temp_drone) < 2:
@@ -752,6 +773,7 @@ class TelaMapa:
         self.pausar_animacao()
         self.app.dados_simulacao = configuracao
         self.app.caminho_configuracao_atual = Path(caminho)
+        self.reconstruir_modelos_da_configuracao()
         self.limpar_simulacao_exibida()
         self.atualizar_lista_painel()
         self.redesenhar_mapa()
@@ -1102,18 +1124,33 @@ class TelaMapa:
             return
 
         resultado = self.resultado_final_simulacao
+        
+        # Formatamos as linhas incluindo recuos (tabulações) para o visual ficar 
+        # super profissional e hierárquico na caixinha de texto!
         linhas = [
-            "Resumo final",
-            f"Interações: {resultado['qtd_interacoes']}",
-            f"Tempo total: {resultado['tempo_total']}",
-            f"Entregues: {resultado['quantidade_ok']}",
-            f"Colisões: {resultado['quantidade_bateu']}",
-            f"Não concluíram: {resultado['quantidade_nao_concluiu']}",
-            f"Sucesso: {resultado['taxa_sucesso']}",
-            f"Fracasso: {resultado['taxa_fracasso']}",
-            f"Distância total: {resultado['distancia_total_percorrida']}",
-            f"Config: {caminho_configuracao}",
-            f"Saída: {self.pasta_resultado_simulacao}",
+            "======== RESUMO FINAL ========",
+            f"Interações do Motor: {resultado['qtd_interacoes']}",
+            f"Tempo Total de Simulação: {resultado['tempo_total']}h",
+            "",
+            "--- DESEMPENHO DAS MISSÕES ---",
+            f"Pacotes Entregues no Destino: {resultado.get('pacotes_entregues', 0)}",
+            f"Missões Concluídas (Retorno Completo): {resultado['quantidade_ok']}",
+            f"Não Concluíram (Timeout): {resultado['quantidade_nao_concluiu']}",
+            "",
+            "--- ANÁLISE DE RISCO / COLISÕES ---",
+            f"Colisões Totais: {resultado['quantidade_bateu']}",
+            f"  └─ Com Carga (Fase de Ida): {resultado.get('colisoes_com_carga', 0)}",
+            f"  └─ Vazio (Fase de Volta): {resultado.get('colisoes_vazio', 0)}",
+            "",
+            "--- MÉTRICAS GERAIS ---",
+            f"Taxa de Sucesso (Missão): {resultado['taxa_sucesso']}",
+            f"Taxa de Fracasso (Missão): {resultado['taxa_fracasso']}",
+            f"Distância Total Percorrida: {resultado['distancia_total_percorrida']} km",
+            f"Tempo Médio para Entrega: {resultado.get('tempo_medio_para_chegada', 0)}h",
+            "",
+            "----------------------------------------------",
+            f"Config: {Path(caminho_configuracao).name}",
+            f"Saída: {self.pasta_resultado_simulacao.name if self.pasta_resultado_simulacao else 'saida'}",
         ]
 
         avisos = resultado.get("avisos_configuracao", [])
@@ -1408,3 +1445,157 @@ class TelaMapa:
         self.atualizar_lista_painel()
         self.ativar_modo_visualizacao()
 
+# ================== ZONAS DE RISCO E FÍSICA ==================
+
+    def forcar_nova_simulacao(self):
+        # Limpa o cache das colisões anteriores e aperta "Play" para recalcular tudo do zero!
+        self.limpar_simulacao_exibida()
+        self.alternar_animacao()
+
+    def logica_clique_parede(self, km_x, km_y, px_x, px_y):
+        if getattr(self, 'parede_temp_p1', None) is None:
+            self.parede_temp_p1 = (km_x, km_y)
+            self.lbl_status.configure(text="Modo: Clique no mapa para o Ponto 2", text_color="#e74c3c")
+            self.id_ponto_parede = self.canvas.create_oval(px_x - 4, px_y - 4, px_x + 4, px_y + 4, fill="#e74c3c", outline="white")
+        else:
+            p2 = (km_x, km_y)
+            p1 = self.parede_temp_p1
+            
+            modelo_selecionado = self.var_modelo_parede_ativo.get()
+            if modelo_selecionado == "Personalizado":
+                JanelaFormularioParede(self, p1, p2)
+            else:
+                self.criar_parede_por_modelo(p1, p2, modelo_selecionado)
+
+    def salvar_parede(self, nome, p1, p2, prob, editando_nome=None, modelo_base=None):
+        self.limpar_simulacao_exibida()
+        if "paredes" not in self.app.dados_simulacao:
+            self.app.dados_simulacao["paredes"] = {}
+            
+        if editando_nome and modelo_base is None:
+            modelo_base = self.app.dados_simulacao["paredes"][editando_nome].get("modelo_base")
+
+        if editando_nome and editando_nome != nome:
+            del self.app.dados_simulacao["paredes"][editando_nome]
+            
+        self.app.dados_simulacao["paredes"][nome] = {
+            "p1": [p1[0], p1[1]], 
+            "p2": [p2[0], p2[1]],
+            "probabilidade": prob,
+            "modelo_base": modelo_base
+        }
+        self.ativar_modo_visualizacao()
+        self.redesenhar_mapa()
+        self.atualizar_lista_painel()
+
+    def deletar_parede(self, nome):
+        self.limpar_simulacao_exibida()
+        if nome in self.app.dados_simulacao.get("paredes", {}):
+            del self.app.dados_simulacao["paredes"][nome]
+            
+        self.ativar_modo_visualizacao()
+        self.redesenhar_mapa()
+        self.atualizar_lista_painel()
+
+    # ================== MODELOS DE ZONAS DE RISCO ==================
+
+    def abrir_formulario_novo_modelo_parede(self):
+        JanelaFormularioModeloParede(self)
+
+    def abrir_formulario_editar_modelo_parede(self):
+        modelo_selecionado = self.var_modelo_parede_ativo.get()
+        if modelo_selecionado == "Personalizado":
+            messagebox.showwarning("Aviso", "Selecione um modelo criado por você.")
+            return
+        JanelaFormularioModeloParede(self, editando_modelo=modelo_selecionado)
+
+    def adicionar_modelo_parede(self, nome, prob):
+        self.modelos_paredes[nome] = {"probabilidade": prob, "contador": 0}
+        valores_atuais = self.combo_modelos_parede.cget("values")
+        if nome not in valores_atuais:
+            self.combo_modelos_parede.configure(values=valores_atuais + [nome])
+        self.var_modelo_parede_ativo.set(nome)
+        messagebox.showinfo("Sucesso", f"Modelo '{nome}' criado e ativado!")
+
+    def atualizar_modelo_parede(self, nome_antigo, nome_novo, prob):
+        if nome_novo != nome_antigo:
+            self.modelos_paredes[nome_novo] = self.modelos_paredes.pop(nome_antigo)
+            valores = self.combo_modelos_parede.cget("values")
+            valores = [nome_novo if v == nome_antigo else v for v in valores]
+            self.combo_modelos_parede.configure(values=valores)
+            if self.var_modelo_parede_ativo.get() == nome_antigo:
+                self.var_modelo_parede_ativo.set(nome_novo)
+
+        self.modelos_paredes[nome_novo]["probabilidade"] = prob
+        paredes_atualizadas = 0
+        for nome_parede, dados_parede in self.app.dados_simulacao.get("paredes", {}).items():
+            if dados_parede.get("modelo_base") == nome_antigo:
+                dados_parede["modelo_base"] = nome_novo
+                dados_parede["probabilidade"] = prob
+                paredes_atualizadas += 1
+                
+        self.atualizar_lista_painel()
+        self.redesenhar_mapa()
+        messagebox.showinfo("Sucesso", f"Modelo '{nome_novo}' atualizado!\n{paredes_atualizadas} zona(s) afetada(s).")
+
+    def criar_parede_por_modelo(self, p1, p2, nome_modelo):
+        modelo = self.modelos_paredes[nome_modelo]
+        modelo["contador"] += 1
+        novo_nome = f"{nome_modelo} {modelo['contador']}"
+        while novo_nome in self.app.dados_simulacao.get("paredes", {}):
+            modelo["contador"] += 1
+            novo_nome = f"{nome_modelo} {modelo['contador']}"
+        self.salvar_parede(novo_nome, p1, p2, modelo["probabilidade"], editando_nome=None, modelo_base=nome_modelo)
+
+    def reconstruir_modelos_da_configuracao(self):
+        """Varre o JSON carregado para reconstruir os modelos na memória da interface e atualizar as caixinhas."""
+        self.modelos_bases = {}
+        self.modelos_drones = {}
+        self.modelos_paredes = {}
+
+        # 1. Recupera Modelos de Bases
+        for nome, dados in self.app.dados_simulacao.get("Pontos", {}).items():
+            modelo = dados.get("modelo_base")
+            if modelo and modelo != "Personalizado":
+                if modelo not in self.modelos_bases:
+                    self.modelos_bases[modelo] = {"raio": dados.get("r", 0.0), "contador": 0}
+                self.modelos_bases[modelo]["contador"] += 1
+
+        # 2. Recupera Modelos de Drones
+        for nome, dados in self.app.dados_simulacao.get("drones", {}).items():
+            modelo = dados.get("modelo_base")
+            if modelo and modelo != "Personalizado":
+                if modelo not in self.modelos_drones:
+                    self.modelos_drones[modelo] = {
+                        "velocidade": dados.get("velocidade", 1.0), 
+                        "raio": dados.get("raio", 0.0), 
+                        "contador": 0
+                    }
+                self.modelos_drones[modelo]["contador"] += 1
+
+        # 3. Recupera Modelos de Paredes
+        for nome, dados in self.app.dados_simulacao.get("paredes", {}).items():
+            modelo = dados.get("modelo_base")
+            if modelo and modelo != "Personalizado":
+                if modelo not in self.modelos_paredes:
+                    self.modelos_paredes[modelo] = {
+                        "probabilidade": float(dados.get("probabilidade", 1.0)), 
+                        "contador": 0
+                    }
+                self.modelos_paredes[modelo]["contador"] += 1
+
+        # 4. Atualiza os botões OptionMenu (caixas de seleção) no painel
+        valores_bases = ["Personalizado"] + list(self.modelos_bases.keys())
+        if hasattr(self, 'combo_modelos_base'):
+            self.combo_modelos_base.configure(values=valores_bases)
+            self.var_modelo_base_ativo.set("Personalizado")
+
+        valores_drones = ["Personalizado"] + list(self.modelos_drones.keys())
+        if hasattr(self, 'combo_modelos'):
+            self.combo_modelos.configure(values=valores_drones)
+            self.var_modelo_ativo.set("Personalizado")
+
+        valores_paredes = ["Personalizado"] + list(self.modelos_paredes.keys())
+        if hasattr(self, 'combo_modelos_parede'):
+            self.combo_modelos_parede.configure(values=valores_paredes)
+            self.var_modelo_parede_ativo.set("Personalizado")

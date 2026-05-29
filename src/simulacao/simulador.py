@@ -6,6 +6,8 @@ from itertools import combinations
 from math import sqrt
 from typing import Any
 
+import random
+
 from .configuracao import ConfiguracaoSimulacao
 from .modelos import Drone, distancia
 
@@ -157,6 +159,10 @@ class SimuladorDrones:
         return max(0.0, tempo_entrada)
 
     def _tempo_ate_colisao_parede(self, drone: Drone, parede: Any) -> float | None:
+        # Se ele já jogou os dados e sobreviveu, a simulação não se preocupa mais com o tempo de batida
+        if parede.nome in drone.zonas_risco_superadas:
+            return None
+
         pos_atual = drone.posicao_atual
         vel = self._vetor_velocidade(drone)
         if abs(vel[0]) < EPSILON and abs(vel[1]) < EPSILON:
@@ -233,15 +239,26 @@ class SimuladorDrones:
             if drone.colidiu:
                 continue
             for parede in self.paredes.values():
+                # Já sobreviveu a essa tempestade? Ignora e segue o voo.
+                if parede.nome in drone.zonas_risco_superadas:
+                    continue
+
                 dist = distancia_ponto_segmento(drone.posicao_atual, parede.p1, parede.p2)
-                # O drone pode "tocar" na parede considerando seu raio
+                
+                # O drone tocou na parede/zona
                 if dist <= drone.raio + EPSILON:
-                    drone.colidiu = True
-                    drone.entregou = False
-                    drone.status = f"bateu_parede({parede.nome})"
-                    drone.tempo_missao = tempo_atual
-                    eventos.append(f"colisao: {drone.nome} com parede {parede.nome}")
-                    break
+                    # Rola o dado do destino (0.0 até 1.0)
+                    if random.random() <= parede.probabilidade:
+                        drone.colidiu = True
+                        drone.entregou = False
+                        drone.status = f"bateu_zona({parede.nome})"
+                        drone.tempo_missao = tempo_atual
+                        eventos.append(f"acidente: {drone.nome} não sobreviveu à zona {parede.nome}")
+                        break
+                    else:
+                        # Sobreviveu! Registra na lista de imunidade dele.
+                        drone.zonas_risco_superadas.add(parede.nome)
+                        eventos.append(f"sorte: {drone.nome} sobreviveu à zona {parede.nome}")
 
         return eventos
 
@@ -250,19 +267,34 @@ class SimuladorDrones:
         for drone in self.drones.values():
             if not drone.ativo:
                 continue
+            
+            # O drone encostou no raio da base de destino atual
             if drone.distancia_ate_destino() <= drone.destino_raio + EPSILON:
-                # Chegou no destino atual
-                if drone.indice_rota + 1 < len(drone.rota):
-                    # Tem próximo ponto na rota
+                is_last_waypoint = drone.indice_rota + 1 >= len(drone.rota)
+                
+                # --- LÓGICA DE ENTREGA DA MERCADORIA ---
+                if not drone.pacote_entregue:
+                    if (drone.base_entrega and drone.destino_nome == drone.base_entrega) or (not drone.base_entrega and is_last_waypoint):
+                        drone.pacote_entregue = True
+                        drone.tempo_entrega = tempo_atual
+                        eventos.append(f"entrega: {drone.nome} entregou o pacote em {drone.destino_nome}")
+
+                # --- A SUA SOLUÇÃO MESTRA AQUI ---
+                # O drone pousou/chegou na base. Zeramos a imunidade dele para o próximo trecho do voo!
+                drone.zonas_risco_superadas.clear()
+
+                if not is_last_waypoint:
+                    # Tem próximo ponto na rota (escala)
                     drone.indice_rota += 1
-                    drone.status = f"pegou proximo: {drone.destino_nome}"
-                    eventos.append(f"rota: {drone.nome} chegou em um waypoint e vai para {drone.destino_nome}")
+                    drone.status = f"indo para {drone.destino_nome}"
+                    eventos.append(f"rota: {drone.nome} passou por um waypoint e vai para {drone.destino_nome}")
                 else:
-                    # Acabou a rota
+                    # Acabou a rota inteira (voltou pra casa)
                     drone.entregou = True
-                    drone.status = "entregou"
+                    drone.status = "entregou" if not drone.base_entrega else "missao concluida"
                     drone.tempo_missao = tempo_atual
-                    eventos.append(f"entrega: {drone.nome} concluiu a rota")
+                    eventos.append(f"fim_missao: {drone.nome} concluiu a rota")
+                    
         return eventos
 
     def _estado_interacao(self) -> dict[str, Any]:
@@ -286,14 +318,23 @@ class SimuladorDrones:
         qtd_entregou = sum(1 for drone in self.drones.values() if drone.entregou)
         qtd_nao_concluiu = sum(1 for drone in self.drones.values() if drone.nao_concluiu)
         distancia_total = sum(drone.distancia_percorrida for drone in self.drones.values())
-        tempos_entrega = [drone.tempo_missao for drone in self.drones.values() if drone.entregou]
+        
+        # --- NOVAS MÉTRICAS ---
+        qtd_pacotes_entregues = sum(1 for drone in self.drones.values() if drone.pacote_entregue)
+        qtd_colisoes_com_carga = sum(1 for drone in self.drones.values() if drone.colidiu and not drone.pacote_entregue)
+        qtd_colisoes_vazio = sum(1 for drone in self.drones.values() if drone.colidiu and drone.pacote_entregue)
+        # Calcula o tempo médio usando a nova métrica (quando o pacote chegou ao cliente)
+        tempos_entrega = [drone.tempo_entrega for drone in self.drones.values() if drone.pacote_entregue]
 
         resultado: dict[str, Any] = {
             "qtd_interacoes": iteracoes,
             "tempo_total": self._arredondar(tempo_total),
-            "quantidade_bateu": qtd_colidiu,
-            "quantidade_ok": qtd_entregou,
+            "quantidade_bateu": qtd_colidiu, # Retrocompatível
+            "quantidade_ok": qtd_entregou, # Retrocompatível
             "quantidade_nao_concluiu": qtd_nao_concluiu,
+            "pacotes_entregues": qtd_pacotes_entregues,       # NOVA
+            "colisoes_com_carga": qtd_colisoes_com_carga,     # NOVA
+            "colisoes_vazio": qtd_colisoes_vazio,             # NOVA
             "_taxa_sucesso": (qtd_entregou / total) if total else 0.0,
             "_taxa_fracasso": ((qtd_colidiu + qtd_nao_concluiu) / total) if total else 0.0,
             "_taxa_colisao": (qtd_colidiu / total) if total else 0.0,
@@ -311,7 +352,6 @@ class SimuladorDrones:
                 return f"{int(round(pct))}%"
             return f"{round(pct,1)}%"
 
-        # sobrescrever as chaves principais com strings percentuais
         resultado["taxa_sucesso"] = fmt_pct(resultado.pop("_taxa_sucesso"))
         resultado["taxa_fracasso"] = fmt_pct(resultado.pop("_taxa_fracasso"))
         resultado["taxa_colisao"] = fmt_pct(resultado.pop("_taxa_colisao"))
@@ -320,8 +360,10 @@ class SimuladorDrones:
             resultado[nome] = {
                 "colidiu": drone.colidiu,
                 "entregou": drone.entregou,
+                "pacote_entregue": drone.pacote_entregue, # NOVA
                 "nao_concluiu": drone.nao_concluiu,
                 "tempo_missao": self._arredondar(drone.tempo_missao),
+                "tempo_entrega": self._arredondar(drone.tempo_entrega) if drone.pacote_entregue else 0.0, # NOVA
                 "distancia_percorrida": self._arredondar(drone.distancia_percorrida),
             }
 

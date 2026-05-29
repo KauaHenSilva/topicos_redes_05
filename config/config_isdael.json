@@ -108,7 +108,7 @@
       "raio": 2.0,
       "velocidade": 22.0,
       "modelo_base": "Blast",
-      "base_entrega": "Estacionamento 2"
+      "base_entrega": "Entrega 2"
     },
     "Blast 3": {
       "posicao_inicial": "Estacionamento 4",
@@ -120,7 +120,7 @@
       "raio": 2.0,
       "velocidade": 22.0,
       "modelo_base": "Blast",
-      "base_entrega": "Estacionamento 4"
+      "base_entrega": "Entrega 4"
     },
     "Blast 4": {
       "posicao_inicial": "Estacionamento 3",
@@ -133,19 +133,33 @@
       "raio": 2.0,
       "velocidade": 22.0,
       "modelo_base": "Blast",
-      "base_entrega": "Estacionamento 3"
+      "base_entrega": "Entrega 3"
     }
   },
   "paredes": {
-    "Muro da china": {
+    "Passaros 1": {
       "p1": [
-        97.9,
-        14.1
+        44.02,
+        33.51
       ],
       "p2": [
-        13.99,
-        50.75
-      ]
+        58.46,
+        20.73
+      ],
+      "probabilidade": 0.5,
+      "modelo_base": "Passaros"
+    },
+    "Tempestade 1": {
+      "p1": [
+        98.27,
+        48.99
+      ],
+      "p2": [
+        109.88,
+        55.56
+      ],
+      "probabilidade": 0.15,
+      "modelo_base": "Tempestade"
     }
   }
 }

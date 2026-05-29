@@ -117,7 +117,17 @@ def _ler_paredes(
         _validar_posicao_no_ambiente(p1, tamanho_ambiente, f"Parede {nome} p1")
         _validar_posicao_no_ambiente(p2, tamanho_ambiente, f"Parede {nome} p2")
 
-        paredes[nome] = Parede(nome=nome, p1=p1, p2=p2)
+        # --- NOVOS CAMPOS LIDOS DO JSON ---
+        probabilidade = float(dados_parede.get("probabilidade", 1.0))
+        modelo_base = dados_parede.get("modelo_base")
+
+        paredes[nome] = Parede(
+            nome=nome, 
+            p1=p1, 
+            p2=p2, 
+            probabilidade=probabilidade, 
+            modelo_base=modelo_base
+        )
 
     return paredes
 
@@ -168,6 +178,8 @@ def _ler_drones(
 
         raio = float(dados_drone.get("raio", 0))
         velocidade = float(dados_drone.get("velocidade", 1))
+        # --- LENDO A BASE DE ENTREGA DO JSON ---
+        base_entrega = dados_drone.get("base_entrega")
 
         if raio < 0:
             raise ValueError(f"Drone {nome} nao pode ter raio negativo.")
@@ -182,6 +194,7 @@ def _ler_drones(
             rota_raios=rota_raios,
             raio=raio,
             velocidade=velocidade,
+            base_entrega=base_entrega, # Injeta no drone
         )
     return drones
 

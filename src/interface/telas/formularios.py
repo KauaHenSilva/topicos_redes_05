@@ -421,3 +421,152 @@ class JanelaFormularioModeloBase(ctk.CTkToplevel):
             self.tela_mapa.adicionar_modelo_base(nome, raio)
             
         self.destroy()
+
+class JanelaFormularioParede(ctk.CTkToplevel):
+    def __init__(self, tela_mapa, p1, p2, editando_nome=None):
+        super().__init__()
+        self.tela_mapa = tela_mapa
+        self.p1 = p1
+        self.p2 = p2
+        self.editando_nome = editando_nome
+
+        self.title("Configuração da Zona de Risco (Parede)")
+        self.geometry("350x400")
+        self.attributes("-topmost", True)
+
+        lbl_titulo = ctk.CTkLabel(self, text="Dados da Zona de Risco", font=("Arial", 16, "bold"))
+        lbl_titulo.pack(pady=(15, 10))
+
+        lbl_nome = ctk.CTkLabel(self, text="Nome da Zona:", text_color="gray", anchor="w")
+        lbl_nome.pack(padx=20, fill="x")
+        self.entrada_nome = ctk.CTkEntry(self, placeholder_text="ex: Tempestade 1")
+        self.entrada_nome.pack(pady=(0, 10), padx=20, fill="x")
+
+        lbl_prob = ctk.CTkLabel(self, text="Probabilidade de Queda (0.0 a 1.0):", text_color="gray", anchor="w")
+        lbl_prob.pack(padx=20, fill="x")
+        self.entrada_prob = ctk.CTkEntry(self, placeholder_text="ex: 0.3 (para 30%)")
+        self.entrada_prob.pack(pady=(0, 15), padx=20, fill="x")
+
+        # Exibe as coordenadas apenas para informação visual (não editáveis diretamente aqui)
+        texto_coords = f"P1: ({p1[0]:.2f}, {p1[1]:.2f})  |  P2: ({p2[0]:.2f}, {p2[1]:.2f})"
+        lbl_coords = ctk.CTkLabel(self, text=texto_coords, text_color="#3498db", font=("Arial", 10))
+        lbl_coords.pack(pady=(5, 10))
+
+        if editando_nome:
+            dados_atuais = self.tela_mapa.app.dados_simulacao.get("paredes", {})[editando_nome]
+            self.entrada_nome.insert(0, editando_nome)
+            self.entrada_prob.insert(0, str(dados_atuais.get("probabilidade", 1.0)))
+        else:
+            self.entrada_prob.insert(0, "1.0") # Padrão: 100% de chance (parede sólida)
+
+        frame_botoes = ctk.CTkFrame(self, fg_color="transparent")
+        frame_botoes.pack(side="bottom", pady=(0, 20))
+
+        btn_salvar = ctk.CTkButton(frame_botoes, text="Salvar", command=self.salvar, width=100)
+        btn_salvar.pack(side="left", padx=10)
+
+        if editando_nome:
+            btn_deletar = ctk.CTkButton(frame_botoes, text="Deletar", fg_color="#c0392b", hover_color="#922b21", command=self.deletar, width=100)
+            btn_deletar.pack(side="right", padx=10)
+
+        try:
+            ativar_modal_quando_visivel(self)
+        except NameError:
+            self.after(200, self.grab_set)
+
+    def salvar(self):
+        nome = self.entrada_nome.get().strip()
+        if not nome:
+            messagebox.showerror("Erro", "O nome não pode ficar vazio.")
+            self.attributes("-topmost", True)
+            return
+
+        if nome in self.tela_mapa.app.dados_simulacao.get("paredes", {}) and self.editando_nome != nome:
+            messagebox.showerror("Erro", f"Já existe uma Zona chamada '{nome}'!")
+            self.attributes("-topmost", True)
+            return
+
+        try:
+            prob = float(self.entrada_prob.get())
+            if not (0.0 <= prob <= 1.0):
+                raise ValueError
+        except ValueError:
+            messagebox.showerror("Erro", "A probabilidade deve ser um número entre 0.0 e 1.0!")
+            self.attributes("-topmost", True)
+            return
+
+        self.tela_mapa.salvar_parede(nome, self.p1, self.p2, prob, self.editando_nome)
+        self.destroy()
+
+    def deletar(self):
+        if messagebox.askyesno("Confirmar", f"Tem certeza que deseja apagar a zona '{self.editando_nome}'?"):
+            self.tela_mapa.deletar_parede(self.editando_nome)
+            self.destroy()
+
+class JanelaFormularioModeloParede(ctk.CTkToplevel):
+    def __init__(self, tela_mapa, editando_modelo=None):
+        super().__init__()
+        self.tela_mapa = tela_mapa
+        self.editando_modelo = editando_modelo
+
+        titulo = "Editar Modelo Parede" if editando_modelo else "Criar Modelo Parede"
+        self.title(titulo)
+        self.geometry("350x280")
+        self.attributes("-topmost", True)
+
+        lbl_titulo = ctk.CTkLabel(self, text=titulo, font=("Arial", 16, "bold"))
+        lbl_titulo.pack(pady=(15, 10))
+
+        lbl_nome = ctk.CTkLabel(self, text="Nome do Modelo:", text_color="gray", anchor="w")
+        lbl_nome.pack(padx=20, fill="x")
+        self.entrada_nome = ctk.CTkEntry(self, placeholder_text="ex: Tempestade Forte")
+        self.entrada_nome.pack(pady=(0, 10), padx=20, fill="x")
+
+        lbl_prob = ctk.CTkLabel(self, text="Probabilidade (0.0 a 1.0):", text_color="gray", anchor="w")
+        lbl_prob.pack(padx=20, fill="x")
+        self.entrada_prob = ctk.CTkEntry(self, placeholder_text="ex: 0.5")
+        self.entrada_prob.pack(pady=(0, 15), padx=20, fill="x")
+
+        if self.editando_modelo:
+            dados = self.tela_mapa.modelos_paredes[self.editando_modelo]
+            self.entrada_nome.insert(0, self.editando_modelo)
+            self.entrada_prob.insert(0, str(dados["probabilidade"]))
+
+        btn_salvar = ctk.CTkButton(self, text="Salvar Modelo", command=self.salvar, width=150)
+        btn_salvar.pack(pady=15)
+
+        try:
+            ativar_modal_quando_visivel(self)
+        except NameError:
+            self.after(200, self.grab_set)
+
+    def salvar(self):
+        nome = self.entrada_nome.get().strip()
+        try:
+            prob = float(self.entrada_prob.get())
+            if not (0.0 <= prob <= 1.0):
+                raise ValueError
+        except ValueError:
+            messagebox.showerror("Erro", "A probabilidade deve ser entre 0.0 e 1.0!")
+            self.attributes("-topmost", True)
+            return
+
+        if not nome:
+            messagebox.showerror("Erro", "O modelo precisa de um nome!")
+            self.attributes("-topmost", True)
+            return
+
+        if self.editando_modelo:
+            if nome != self.editando_modelo and (nome == "Personalizado" or nome in self.tela_mapa.modelos_paredes):
+                messagebox.showerror("Erro", "Nome inválido ou já existente.")
+                self.attributes("-topmost", True)
+                return
+            self.tela_mapa.atualizar_modelo_parede(self.editando_modelo, nome, prob)
+        else:
+            if nome == "Personalizado" or nome in self.tela_mapa.modelos_paredes:
+                messagebox.showerror("Erro", "Nome inválido ou já existente.")
+                self.attributes("-topmost", True)
+                return
+            self.tela_mapa.adicionar_modelo_parede(nome, prob)
+            
+        self.destroy()
